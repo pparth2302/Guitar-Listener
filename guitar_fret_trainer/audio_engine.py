@@ -1,8 +1,9 @@
-"""Realtime microphone pitch capture for Guitar Fret Trainer.
+"""Realtime microphone pitch and chord analysis for Guitar Fret Trainer.
 
-The audio callback does only the minimum work needed to estimate pitch and
-store the latest reading. Worker loops outside the callback emit updates to the
-web app so UI/network work does not block the microphone stream.
+Single-note work uses aubio/yinfft when available and a NumPy autocorrelation
+fallback on Windows. Chord work is intentionally separate: it uses FFT peaks to
+build a 12-bin chroma fingerprint so chord calibration never mixes with
+single string/fret calibration.
 """
 
 from __future__ import annotations
@@ -42,6 +43,9 @@ except Exception as exc:  # pragma: no cover
 PitchCallback = Callable[[dict[str, Any]], None]
 StatusCallback = Callable[[dict[str, Any]], None]
 CalibrationCallback = Callable[[float | None, dict[str, Any]], None]
+ChordCalibrationCallback = Callable[[dict[str, Any] | None, dict[str, Any]], None]
+
+PITCH_CLASSES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
 
 def cents_between(frequency_hz: float, reference_hz: float) -> float:
@@ -51,12 +55,258 @@ def cents_between(frequency_hz: float, reference_hz: float) -> float:
     return 1200.0 * math.log2(frequency_hz / reference_hz)
 
 
-class PitchProcessor:
-    """Pitch detector with RMS gating and rolling-median smoothing.
+def frequency_to_midi(frequency_hz: float) -> float:
+    if frequency_hz <= 0:
+        return float("nan")
+    return 69.0 + 12.0 * math.log2(frequency_hz / 440.0)
 
-    aubio/yinfft is preferred. On Windows systems without a compiled aubio
-    wheel, a NumPy autocorrelation fallback keeps the local app usable.
+
+def midi_to_pitch_class(midi_note: float) -> str:
+    if not math.isfinite(midi_note):
+        return ""
+    return PITCH_CLASSES[int(round(midi_note)) % 12]
+
+
+def frequency_to_note_name(frequency_hz: float) -> str:
+    midi_note = frequency_to_midi(frequency_hz)
+    if not math.isfinite(midi_note):
+        return ""
+    rounded = int(round(midi_note))
+    octave = (rounded // 12) - 1
+    return f"{PITCH_CLASSES[rounded % 12]}{octave}"
+
+
+def compare_chroma_vectors(v1: list[float], v2: list[float]) -> float:
+    """Cosine similarity for normalized or raw 12-bin chroma vectors."""
+    if np is None:
+        return 0.0
+    a = np.asarray(v1, dtype=np.float64)
+    b = np.asarray(v2, dtype=np.float64)
+    if a.shape[0] != 12 or b.shape[0] != 12:
+        return 0.0
+    denominator = float(np.linalg.norm(a) * np.linalg.norm(b))
+    if denominator <= 1e-12:
+        return 0.0
+    return max(0.0, min(1.0, float(np.dot(a, b) / denominator)))
+
+
+def extract_chroma_vector(audio_buffer: Any, sample_rate: int) -> list[float]:
+    return extract_chord_fingerprint(audio_buffer, sample_rate)["chroma_vector"]
+
+
+def extract_chord_fingerprint(
+    audio_buffer: Any,
+    sample_rate: int,
+    *,
+    rms_threshold: float = 0.008,
+    min_frequency_hz: float = 60.0,
+    max_frequency_hz: float = 1600.0,
+) -> dict[str, Any]:
+    """Build a chord fingerprint from FFT peaks.
+
+    The analyzer splits the audio into overlapping frames, finds spectral peaks
+    in guitar-friendly frequency ranges, maps those peaks to pitch classes, and
+    folds the energy into a normalized 12-bin chroma vector.
     """
+    if np is None:
+        raise RuntimeError(f"NumPy is unavailable: {NUMPY_IMPORT_ERROR}")
+
+    audio = np.asarray(audio_buffer, dtype=np.float32).reshape(-1)
+    if len(audio) == 0:
+        return _empty_fingerprint("No audio samples captured")
+
+    audio = audio - float(np.mean(audio))
+    total_rms = _rms(audio)
+    if total_rms < rms_threshold:
+        return _empty_fingerprint("Signal below noise threshold", rms=total_rms)
+
+    frame_size = min(8192, max(2048, _previous_power_of_two(len(audio))))
+    hop_size = max(512, frame_size // 2)
+    chroma = np.zeros(12, dtype=np.float64)
+    peak_strengths: dict[float, float] = {}
+    centroid_values: list[float] = []
+    active_frames = 0
+
+    if len(audio) < frame_size:
+        frames = [np.pad(audio, (0, frame_size - len(audio)))]
+    else:
+        frames = [
+            audio[start : start + frame_size]
+            for start in range(0, len(audio) - frame_size + 1, hop_size)
+        ]
+
+    for frame in frames:
+        frame_rms = _rms(frame)
+        if frame_rms < rms_threshold:
+            continue
+
+        active_frames += 1
+        frame_chroma, peaks, centroid = _analyze_fft_frame(
+            frame,
+            sample_rate,
+            min_frequency_hz=min_frequency_hz,
+            max_frequency_hz=max_frequency_hz,
+        )
+        chroma += frame_chroma
+        if centroid > 0:
+            centroid_values.append(centroid)
+
+        for frequency_hz, strength in peaks:
+            bucket = round(float(frequency_hz), 1)
+            peak_strengths[bucket] = peak_strengths.get(bucket, 0.0) + float(strength)
+
+    if active_frames == 0 or float(np.max(chroma)) <= 1e-12:
+        return _empty_fingerprint("No strong chord peaks detected", rms=total_rms)
+
+    chroma_vector = _normalize_vector(chroma)
+    max_chroma = float(np.max(chroma_vector)) if chroma_vector else 0.0
+    pitch_class_strengths = {
+        PITCH_CLASSES[index]: round(value / max_chroma, 3)
+        for index, value in enumerate(chroma_vector)
+        if max_chroma > 0 and value >= max_chroma * 0.2
+    }
+    pitch_classes = [
+        name
+        for name, _strength in sorted(
+            pitch_class_strengths.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+    ][:8]
+
+    dominant_frequencies = [
+        frequency
+        for frequency, _strength in sorted(
+            peak_strengths.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+    ][:12]
+
+    confidence_baseline = 0.0
+    if pitch_class_strengths:
+        confidence_baseline = float(statistics.fmean(pitch_class_strengths.values()))
+
+    return {
+        "dominant_frequencies": [round(float(value), 2) for value in dominant_frequencies],
+        "pitch_classes": pitch_classes,
+        "pitch_class_strengths": pitch_class_strengths,
+        "spectral_centroid_avg": round(float(statistics.fmean(centroid_values)), 3)
+        if centroid_values
+        else 0.0,
+        "chroma_vector": [round(float(value), 6) for value in chroma_vector],
+        "confidence_baseline": round(confidence_baseline, 3),
+        "rms": round(total_rms, 5),
+        "active_frames": active_frames,
+        "message": "Chord fingerprint extracted",
+    }
+
+
+def _analyze_fft_frame(
+    frame: Any,
+    sample_rate: int,
+    *,
+    min_frequency_hz: float,
+    max_frequency_hz: float,
+) -> tuple[Any, list[tuple[float, float]], float]:
+    frame = np.asarray(frame, dtype=np.float32)
+    frame = frame - float(np.mean(frame))
+    windowed = frame * np.hanning(len(frame))
+    spectrum = np.abs(np.fft.rfft(windowed))
+    frequencies = np.fft.rfftfreq(len(windowed), d=1.0 / sample_rate)
+
+    mask = (frequencies >= min_frequency_hz) & (frequencies <= max_frequency_hz)
+    masked_freqs = frequencies[mask]
+    masked_mags = spectrum[mask]
+    if len(masked_mags) < 3 or float(np.max(masked_mags)) <= 1e-12:
+        return np.zeros(12, dtype=np.float64), [], 0.0
+
+    centroid = float(np.sum(masked_freqs * masked_mags) / max(float(np.sum(masked_mags)), 1e-12))
+    peaks = _find_spectral_peaks(masked_freqs, masked_mags)
+    chroma = np.zeros(12, dtype=np.float64)
+
+    for frequency_hz, magnitude in peaks:
+        midi_note = frequency_to_midi(float(frequency_hz))
+        if not math.isfinite(midi_note):
+            continue
+        pitch_index = int(round(midi_note)) % 12
+        # Lower fundamentals are usually more informative than very bright
+        # harmonics, so reduce weight as frequency rises.
+        weight = float(magnitude) / math.sqrt(max(float(frequency_hz), 1.0))
+        chroma[pitch_index] += weight
+
+    return chroma, peaks, centroid
+
+
+def _find_spectral_peaks(
+    frequencies: Any,
+    magnitudes: Any,
+    *,
+    max_peaks: int = 18,
+    relative_threshold: float = 0.12,
+) -> list[tuple[float, float]]:
+    max_magnitude = float(np.max(magnitudes))
+    if max_magnitude <= 1e-12:
+        return []
+
+    threshold = max_magnitude * relative_threshold
+    candidates: list[tuple[float, float]] = []
+    for index in range(1, len(magnitudes) - 1):
+        current = float(magnitudes[index])
+        if (
+            current >= threshold
+            and current >= float(magnitudes[index - 1])
+            and current >= float(magnitudes[index + 1])
+        ):
+            candidates.append((float(frequencies[index]), current))
+
+    candidates.sort(key=lambda item: item[1], reverse=True)
+    selected: list[tuple[float, float]] = []
+    for frequency_hz, magnitude in candidates:
+        if all(abs(frequency_hz - existing[0]) >= 8.0 for existing in selected):
+            selected.append((frequency_hz, magnitude))
+        if len(selected) >= max_peaks:
+            break
+    return selected
+
+
+def _normalize_vector(vector: Any) -> list[float]:
+    values = np.asarray(vector, dtype=np.float64)
+    norm = float(np.linalg.norm(values))
+    if norm <= 1e-12:
+        return [0.0] * 12
+    return [float(value) for value in values / norm]
+
+
+def _empty_fingerprint(message: str, *, rms: float = 0.0) -> dict[str, Any]:
+    return {
+        "dominant_frequencies": [],
+        "pitch_classes": [],
+        "pitch_class_strengths": {},
+        "spectral_centroid_avg": 0.0,
+        "chroma_vector": [0.0] * 12,
+        "confidence_baseline": 0.0,
+        "rms": round(float(rms), 5),
+        "active_frames": 0,
+        "message": message,
+    }
+
+
+def _rms(samples: Any) -> float:
+    if np is None:
+        return 0.0
+    values = np.asarray(samples, dtype=np.float32).reshape(-1)
+    return float(np.sqrt(np.mean(np.square(values)))) if len(values) else 0.0
+
+
+def _previous_power_of_two(value: int) -> int:
+    if value <= 1:
+        return 1
+    return 1 << (int(value).bit_length() - 1)
+
+
+class PitchProcessor:
+    """Single-note detector with RMS gating and rolling-median smoothing."""
 
     def __init__(
         self,
@@ -96,19 +346,17 @@ class PitchProcessor:
             try:
                 self._pitch.set_tolerance(0.8)
             except Exception:
-                # Not all aubio pitch methods expose tolerance; yin/yinfft do.
                 pass
 
     def process(self, samples: Any) -> dict[str, Any]:
         """Process one audio block and return a UI-friendly pitch payload."""
         block = np.asarray(samples, dtype=np.float32).reshape(-1)
-
         if len(block) < self.hop_size:
             block = np.pad(block, (0, self.hop_size - len(block)))
         elif len(block) > self.hop_size:
             block = block[: self.hop_size]
 
-        rms = float(np.sqrt(np.mean(np.square(block)))) if len(block) else 0.0
+        rms = _rms(block)
         if rms < self.rms_threshold:
             self._frequencies.clear()
             return self._no_pitch(rms, "Signal below noise threshold")
@@ -258,6 +506,85 @@ class PitchProcessor:
         return payload
 
 
+class RealtimeChordProcessor:
+    """Maintains a rolling audio window for live chord chroma analysis."""
+
+    def __init__(
+        self,
+        *,
+        sample_rate: int,
+        window_seconds: float,
+        rms_threshold: float,
+        analysis_interval_seconds: float = 0.18,
+    ) -> None:
+        if np is None:
+            raise RuntimeError(f"NumPy is unavailable: {NUMPY_IMPORT_ERROR}")
+
+        self.sample_rate = sample_rate
+        self.rms_threshold = rms_threshold
+        self._audio_window = np.zeros(int(sample_rate * window_seconds), dtype=np.float32)
+        self._analysis_interval_samples = max(1, int(sample_rate * analysis_interval_seconds))
+        self._samples_since_analysis = self._analysis_interval_samples
+        self._last_result = {
+            "clear": False,
+            "fingerprint": _empty_fingerprint("Waiting for enough audio"),
+            "strong_pitch_class_count": 0,
+            "message": "Listening for chord spectrum...",
+        }
+
+    def process(self, samples: Any) -> dict[str, Any]:
+        block = np.asarray(samples, dtype=np.float32).reshape(-1)
+        if len(block) >= len(self._audio_window):
+            self._audio_window = block[-len(self._audio_window) :].copy()
+        else:
+            self._audio_window = np.roll(self._audio_window, -len(block))
+            self._audio_window[-len(block) :] = block
+
+        self._samples_since_analysis += len(block)
+        if self._samples_since_analysis < self._analysis_interval_samples:
+            return self._last_result
+        self._samples_since_analysis = 0
+
+        window_rms = _rms(self._audio_window)
+        if window_rms < self.rms_threshold:
+            self._last_result = {
+                "clear": False,
+                "fingerprint": _empty_fingerprint(
+                    "Signal below noise threshold",
+                    rms=window_rms,
+                ),
+                "strong_pitch_class_count": 0,
+                "message": "No chord energy detected",
+            }
+            return self._last_result
+
+        try:
+            fingerprint = extract_chord_fingerprint(
+                self._audio_window,
+                self.sample_rate,
+                rms_threshold=self.rms_threshold,
+            )
+        except Exception as exc:
+            self._last_result = {
+                "clear": False,
+                "fingerprint": _empty_fingerprint("FFT chord analysis failed", rms=window_rms),
+                "strong_pitch_class_count": 0,
+                "message": "FFT chord analysis failed",
+                "error": str(exc),
+            }
+            return self._last_result
+
+        strong_count = len(fingerprint.get("pitch_classes", []))
+        clear = strong_count >= 2 and fingerprint.get("confidence_baseline", 0.0) > 0
+        self._last_result = {
+            "clear": clear,
+            "fingerprint": fingerprint,
+            "strong_pitch_class_count": strong_count,
+            "message": "Chord-like spectrum detected" if clear else "Listening for chord spectrum...",
+        }
+        return self._last_result
+
+
 class AudioEngine:
     """Owns microphone streams for calibration and detection."""
 
@@ -275,6 +602,7 @@ class AudioEngine:
         max_frequency_hz: float = 1200.0,
         min_aubio_confidence: float = 0.2,
         calibration_seconds: float = 3.0,
+        chord_calibration_seconds: float = 5.0,
         emit_interval_seconds: float = 0.12,
         logger: Any | None = None,
     ) -> None:
@@ -289,6 +617,7 @@ class AudioEngine:
         self.max_frequency_hz = max_frequency_hz
         self.min_aubio_confidence = min_aubio_confidence
         self.calibration_seconds = calibration_seconds
+        self.chord_calibration_seconds = chord_calibration_seconds
         self.emit_interval_seconds = emit_interval_seconds
         self.logger = logger
 
@@ -333,7 +662,7 @@ class AudioEngine:
             )
         return True, "Audio input is available."
 
-    def start_calibration(
+    def start_single_calibration(
         self,
         string_label: str,
         note: str,
@@ -350,16 +679,62 @@ class AudioEngine:
             if self._mode != "idle":
                 return False, f"Audio engine is busy in {self._mode} mode."
 
-            self._mode = "calibration"
+            self._mode = "single_calibration"
             self._stop_event.clear()
             self._thread = threading.Thread(
-                target=self._run_calibration,
+                target=self._run_single_calibration,
                 args=(string_label, note, fret, pitch_callback, completion_callback, status_callback),
                 daemon=True,
             )
             self._thread.start()
 
-        return True, "Calibration started."
+        return True, "Single-note calibration started."
+
+    # Backward-compatible name from the first app version.
+    def start_calibration(
+        self,
+        string_label: str,
+        note: str,
+        fret: int,
+        pitch_callback: PitchCallback,
+        completion_callback: CalibrationCallback,
+        status_callback: StatusCallback,
+    ) -> tuple[bool, str]:
+        return self.start_single_calibration(
+            string_label,
+            note,
+            fret,
+            pitch_callback,
+            completion_callback,
+            status_callback,
+        )
+
+    def start_chord_calibration(
+        self,
+        chord_name: str,
+        expected_notes: list[str],
+        chord_callback: PitchCallback,
+        completion_callback: ChordCalibrationCallback,
+        status_callback: StatusCallback,
+    ) -> tuple[bool, str]:
+        available, message = self.audio_available()
+        if not available:
+            return False, message
+
+        with self._lock:
+            if self._mode != "idle":
+                return False, f"Audio engine is busy in {self._mode} mode."
+
+            self._mode = "chord_calibration"
+            self._stop_event.clear()
+            self._thread = threading.Thread(
+                target=self._run_chord_calibration,
+                args=(chord_name, expected_notes, chord_callback, completion_callback, status_callback),
+                daemon=True,
+            )
+            self._thread.start()
+
+        return True, "Chord calibration started."
 
     def start_detection(
         self,
@@ -407,7 +782,7 @@ class AudioEngine:
             return True, f"Stop requested for {mode}; waiting for the audio stream to close."
         return True, f"{mode.capitalize()} stopped."
 
-    def _run_calibration(
+    def _run_single_calibration(
         self,
         string_label: str,
         note: str,
@@ -421,7 +796,7 @@ class AudioEngine:
         data_lock = threading.Lock()
 
         try:
-            processor = self._make_processor()
+            processor = self._make_pitch_processor()
         except Exception as exc:
             if self.logger:
                 self.logger.exception("Unable to initialize pitch processor for calibration")
@@ -441,7 +816,7 @@ class AudioEngine:
         def callback(indata: Any, frames: int, time_info: Any, status: Any) -> None:
             nonlocal latest_payload
             if status and self.logger:
-                self.logger.warning("Audio callback status during calibration: %s", status)
+                self.logger.warning("Audio callback status during single calibration: %s", status)
             try:
                 payload = processor.process(indata[:, 0])
             except Exception as exc:
@@ -460,7 +835,7 @@ class AudioEngine:
             status_callback,
             {
                 "level": "info",
-                "mode": "calibration",
+                "mode": "single_calibration",
                 "message": (
                     f"Listening for {string_label} {note} fret {fret} for 3 seconds "
                     f"using {processor.detector_name}..."
@@ -487,7 +862,7 @@ class AudioEngine:
                     if payload:
                         payload.update(
                             {
-                                "mode": "calibration",
+                                "mode": "single_calibration",
                                 "seconds_remaining": round(seconds_remaining, 1),
                                 "stable_samples": sample_count,
                             }
@@ -496,9 +871,9 @@ class AudioEngine:
 
             with data_lock:
                 stable_values = list(readings)
-            average_hz = self._average_best_stable_values(stable_values)
+            summary = self._summarize_stable_values(stable_values)
 
-            if average_hz is None:
+            if summary is None:
                 completion_callback(
                     None,
                     {
@@ -507,21 +882,135 @@ class AudioEngine:
                     },
                 )
             else:
+                average_hz, std_dev = summary
                 completion_callback(
                     round(average_hz, 2),
                     {
                         "samples": len(stable_values),
-                        "message": "Calibration captured successfully.",
+                        "std_dev": round(std_dev, 3),
+                        "message": "Single-note calibration captured successfully.",
                     },
                 )
         except Exception as exc:
             if self.logger:
-                self.logger.exception("Calibration stream failed")
+                self.logger.exception("Single calibration stream failed")
             completion_callback(
                 None,
                 {
                     "samples": 0,
                     "message": f"Unable to open microphone for calibration: {exc}",
+                    "error": str(exc),
+                },
+            )
+        finally:
+            self._mark_idle()
+
+    def _run_chord_calibration(
+        self,
+        chord_name: str,
+        expected_notes: list[str],
+        chord_callback: PitchCallback,
+        completion_callback: ChordCalibrationCallback,
+        status_callback: StatusCallback,
+    ) -> None:
+        blocks: list[Any] = []
+        latest_rms = 0.0
+        data_lock = threading.Lock()
+
+        def callback(indata: Any, frames: int, time_info: Any, status: Any) -> None:
+            nonlocal latest_rms
+            if status and self.logger:
+                self.logger.warning("Audio callback status during chord calibration: %s", status)
+            try:
+                mono = np.asarray(indata[:, 0], dtype=np.float32).copy()
+                with data_lock:
+                    blocks.append(mono)
+                    latest_rms = _rms(mono)
+            except Exception:
+                if self.logger:
+                    self.logger.exception("Failed to capture chord calibration block")
+
+        self._safe_status(
+            status_callback,
+            {
+                "level": "info",
+                "mode": "chord_calibration",
+                "message": f"Strum {chord_name} several times for 5 seconds.",
+            },
+        )
+
+        try:
+            with sd.InputStream(
+                samplerate=self.sample_rate,
+                channels=1,
+                blocksize=self.hop_size,
+                dtype="float32",
+                callback=callback,
+            ):
+                deadline = time.monotonic() + self.chord_calibration_seconds
+                while time.monotonic() < deadline and not self._stop_event.is_set():
+                    time.sleep(self.emit_interval_seconds)
+                    seconds_remaining = max(0.0, deadline - time.monotonic())
+                    with data_lock:
+                        rms_value = latest_rms
+                        block_count = len(blocks)
+                    self._safe_pitch(
+                        chord_callback,
+                        {
+                            "mode": "chord_calibration",
+                            "chord_name": chord_name,
+                            "seconds_remaining": round(seconds_remaining, 1),
+                            "rms": round(rms_value, 5),
+                            "captured_blocks": block_count,
+                            "message": "Capturing chord strums...",
+                        },
+                    )
+
+            with data_lock:
+                captured = [block.copy() for block in blocks]
+            if not captured:
+                completion_callback(
+                    None,
+                    {
+                        "message": "Chord calibration did not capture audio.",
+                        "samples": 0,
+                    },
+                )
+                return
+
+            audio_buffer = np.concatenate(captured)
+            fingerprint = extract_chord_fingerprint(
+                audio_buffer,
+                self.sample_rate,
+                rms_threshold=self.rms_threshold,
+            )
+            if len(fingerprint.get("pitch_classes", [])) < 2:
+                completion_callback(
+                    None,
+                    {
+                        "message": "Chord calibration did not find enough strong pitch classes.",
+                        "samples": len(audio_buffer),
+                        "fingerprint": fingerprint,
+                    },
+                )
+                return
+
+            completion_callback(
+                fingerprint,
+                {
+                    "message": "Chord calibration captured successfully.",
+                    "samples": len(audio_buffer),
+                    "expected_notes": expected_notes,
+                },
+            )
+        except Exception as exc:
+            if self.logger:
+                self.logger.exception("Chord calibration stream failed")
+            completion_callback(
+                None,
+                {
+                    "samples": 0,
+                    "message": f"Unable to open microphone for chord calibration: {exc}",
                     "error": str(exc),
                 },
             )
@@ -537,16 +1026,21 @@ class AudioEngine:
         data_lock = threading.Lock()
 
         try:
-            processor = self._make_processor()
+            pitch_processor = self._make_pitch_processor()
+            chord_processor = RealtimeChordProcessor(
+                sample_rate=self.sample_rate,
+                window_seconds=1.1,
+                rms_threshold=self.rms_threshold,
+            )
         except Exception as exc:
             if self.logger:
-                self.logger.exception("Unable to initialize pitch processor for detection")
+                self.logger.exception("Unable to initialize detection processors")
             self._safe_status(
                 status_callback,
                 {
                     "level": "error",
                     "mode": "detection",
-                    "message": f"Unable to initialize pitch detection: {exc}",
+                    "message": f"Unable to initialize detection: {exc}",
                 },
             )
             self._mark_idle()
@@ -557,11 +1051,28 @@ class AudioEngine:
             if status and self.logger:
                 self.logger.warning("Audio callback status during detection: %s", status)
             try:
-                payload = processor.process(indata[:, 0])
+                mono = np.asarray(indata[:, 0], dtype=np.float32)
+                pitch_payload = pitch_processor.process(mono)
+                chord_payload = chord_processor.process(mono)
+                payload = {
+                    **pitch_payload,
+                    "mode": "detection",
+                    "single_note": pitch_payload,
+                    "chord": chord_payload,
+                    "timestamp": time.time(),
+                }
             except Exception as exc:
                 if self.logger:
-                    self.logger.exception("Pitch processing failed during detection")
-                payload = self._error_pitch_payload("Pitch detection failed", exc)
+                    self.logger.exception("Detection processing failed")
+                payload = self._error_pitch_payload("Detection processing failed", exc)
+                payload["mode"] = "detection"
+                payload["single_note"] = payload.copy()
+                payload["chord"] = {
+                    "clear": False,
+                    "fingerprint": _empty_fingerprint("FFT chord analysis failed"),
+                    "strong_pitch_class_count": 0,
+                    "message": "FFT chord analysis failed",
+                }
 
             with data_lock:
                 latest_payload = payload
@@ -572,8 +1083,8 @@ class AudioEngine:
                 "level": "success",
                 "mode": "detection",
                 "message": (
-                    f"Detection started using {processor.detector_name}. "
-                    "Play one clean note at a time."
+                    f"Detection started using {pitch_processor.detector_name} plus FFT chroma. "
+                    "Play one clean note or strum one clear chord."
                 ),
             },
         )
@@ -591,7 +1102,6 @@ class AudioEngine:
                     with data_lock:
                         payload = dict(latest_payload) if latest_payload else None
                     if payload:
-                        payload["mode"] = "detection"
                         self._safe_pitch(pitch_callback, payload)
         except Exception as exc:
             if self.logger:
@@ -617,7 +1127,7 @@ class AudioEngine:
                     },
                 )
 
-    def _make_processor(self) -> PitchProcessor:
+    def _make_pitch_processor(self) -> PitchProcessor:
         return PitchProcessor(
             sample_rate=self.sample_rate,
             buffer_size=self.buffer_size,
@@ -660,6 +1170,8 @@ class AudioEngine:
             "smoothed_frequency_hz": None,
             "rms": 0.0,
             "aubio_confidence": 0.0,
+            "detector_confidence": 0.0,
+            "detector": "unknown",
             "spread_cents": None,
             "message": message,
             "error": str(exc),
@@ -667,7 +1179,7 @@ class AudioEngine:
         }
 
     @staticmethod
-    def _average_best_stable_values(values: list[float]) -> float | None:
+    def _summarize_stable_values(values: list[float]) -> tuple[float, float] | None:
         """Average stable values after trimming outliers around the median."""
         if len(values) < 5:
             return None
@@ -682,4 +1194,7 @@ class AudioEngine:
             ]
         if len(best_values) < 5:
             return None
-        return float(statistics.fmean(best_values))
+
+        average = float(statistics.fmean(best_values))
+        std_dev = float(statistics.pstdev(best_values)) if len(best_values) > 1 else 0.0
+        return average, std_dev

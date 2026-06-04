@@ -38,6 +38,7 @@ body {
 }
 
 button,
+input,
 select {
   font: inherit;
 }
@@ -231,13 +232,16 @@ h2 {
   display: block;
 }
 
+.calibration-cards,
 .panel-grid,
 .detection-layout,
-.metrics-grid {
+.metrics-grid,
+.guess-grid {
   display: grid;
   gap: 18px;
 }
 
+.calibration-cards,
 .panel-grid,
 .detection-layout {
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
@@ -278,6 +282,7 @@ label {
   font-weight: 900;
 }
 
+input,
 select {
   width: 100%;
   min-height: 52px;
@@ -289,6 +294,7 @@ select {
   outline: none;
 }
 
+input:focus,
 select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 4px rgba(201, 80, 47, 0.16);
@@ -337,6 +343,10 @@ select:focus {
   display: grid;
   align-content: center;
   min-height: 320px;
+}
+
+.calibration-listen {
+  margin-top: 18px;
 }
 
 .frequency-readout {
@@ -388,6 +398,13 @@ select:focus {
   gap: 16px;
   align-items: center;
   margin-bottom: 18px;
+}
+
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .pill {
@@ -470,8 +487,21 @@ tr:last-child td {
     linear-gradient(145deg, #173f32, #252018);
 }
 
+.result-card[data-state="confident"] {
+  background:
+    radial-gradient(circle at 88% 10%, rgba(76, 199, 157, 0.36), transparent 18rem),
+    linear-gradient(145deg, #173f32, #252018);
+}
+
+.result-card[data-state="possible"] {
+  background:
+    radial-gradient(circle at 88% 10%, rgba(244, 189, 121, 0.36), transparent 18rem),
+    linear-gradient(145deg, #4c3b1c, #252018);
+}
+
 .result-card[data-state="uncertain"],
-.result-card[data-state="no_pitch"] {
+.result-card[data-state="no_pitch"],
+.result-card[data-state="unknown"] {
   background:
     radial-gradient(circle at 88% 10%, rgba(255, 189, 91, 0.32), transparent 18rem),
     linear-gradient(145deg, #5b3b18, #252018);
@@ -495,9 +525,79 @@ tr:last-child td {
   margin-top: 22px;
 }
 
+.compact-button {
+  min-height: 36px;
+  padding: 0 12px;
+}
+
+.tiny-button {
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 250, 240, 0.72);
+  color: var(--ink);
+  font-weight: 900;
+}
+
+.tiny-button.danger {
+  color: var(--red);
+}
+
 .metric-card {
   min-height: 150px;
   padding: 20px;
+}
+
+.guess-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.guess-card {
+  transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+
+.guess-card[data-active="true"] {
+  border-color: rgba(47, 124, 99, 0.58);
+  transform: translateY(-2px);
+  box-shadow: 0 24px 72px rgba(47, 124, 99, 0.18);
+}
+
+.guess-card h2 {
+  margin-bottom: 18px;
+}
+
+.stat-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.stat-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.stat-list div:last-child {
+  border-bottom: 0;
+}
+
+.stat-list dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.stat-list dd {
+  margin: 0;
+  font-weight: 900;
+  text-align: right;
 }
 
 .metric-label {
@@ -530,9 +630,11 @@ tr:last-child td {
 
 @media (max-width: 840px) {
   .hero,
+  .calibration-cards,
   .panel-grid,
   .detection-layout,
-  .metrics-grid {
+  .metrics-grid,
+  .guess-grid {
     grid-template-columns: 1fr;
   }
 

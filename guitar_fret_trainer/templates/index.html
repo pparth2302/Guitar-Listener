@@ -12,16 +12,16 @@
 
     <header class="hero">
       <div>
-        <p class="eyebrow">Realtime microphone pitch mapping</p>
+        <p class="eyebrow">Realtime note and chord listening</p>
         <h1>Guitar Fret Trainer</h1>
         <p class="hero-copy">
-          Calibrate your own guitar, then let the app listen and call out the
-          closest string and fret from your saved reference tones.
+          Calibrate single frets and full chords separately, then let one live
+          listening mode decide whether you played a note or a chord.
         </p>
       </div>
       <div class="connection-card">
         <span id="connectionBadge" class="badge badge-waiting">Connecting</span>
-        <span class="tiny-label">Local Flask + Socket.IO</span>
+        <span class="tiny-label">Mic starts only after Start</span>
       </div>
     </header>
 
@@ -36,18 +36,18 @@
       </nav>
 
       <section id="statusBar" class="status-bar status-info" role="status">
-        Ready. Calibrate at least one string/fret, then start detection.
+        Mic is off. Calibrate single notes or chords, then start detection.
       </section>
 
       <section id="calibrationPanel" class="panel active" aria-labelledby="calibrationTab">
-        <div class="panel-grid">
+        <div class="calibration-cards">
           <article class="card control-card">
             <div class="card-heading">
-              <p class="eyebrow">Step 1</p>
-              <h2>Save A Reference</h2>
+              <p class="eyebrow">Single Note / Fret</p>
+              <h2>Save A Fret Reference</h2>
             </div>
 
-            <form id="calibrationForm" class="form-stack">
+            <form id="singleCalibrationForm" class="form-stack">
               <label>
                 Guitar string
                 <select id="stringSelect" required></select>
@@ -58,37 +58,71 @@
                 <select id="fretSelect" required></select>
               </label>
 
-              <button id="startCalibration" class="primary-button" type="submit">
-                Start Calibration
+              <button id="startSingleCalibration" class="primary-button" type="submit">
+                Start Single Calibration
               </button>
-              <button id="resetCalibration" class="ghost-button danger" type="button">
-                Delete / Reset Calibration Data
+              <button id="resetSingleCalibration" class="ghost-button danger" type="button">
+                Reset Single Notes
               </button>
             </form>
           </article>
 
-          <article class="card listen-card">
+          <article class="card control-card chord-card">
             <div class="card-heading">
-              <p class="eyebrow">Live input</p>
-              <h2>Calibration Listen</h2>
+              <p class="eyebrow">Chord Fingerprint</p>
+              <h2>Teach A Chord</h2>
             </div>
-            <div class="frequency-readout" id="calibrationFrequency">-- Hz</div>
-            <div class="meter" aria-hidden="true">
-              <span id="calibrationMeter"></span>
-            </div>
-            <p id="calibrationHint" class="hint">
-              Choose a string/fret and play one clean note for the 3 second capture window.
-            </p>
+
+            <form id="chordCalibrationForm" class="form-stack">
+              <label>
+                Common chord
+                <select id="chordSelect"></select>
+              </label>
+
+              <label>
+                Custom chord name
+                <input id="customChordName" type="text" placeholder="Optional, e.g. Cadd9">
+              </label>
+
+              <label>
+                Expected notes
+                <input id="expectedNotesInput" type="text" placeholder="Optional, e.g. E, G, B">
+              </label>
+
+              <button id="startChordCalibration" class="primary-button" type="submit">
+                Start Chord Calibration
+              </button>
+              <button id="resetChordCalibration" class="ghost-button danger" type="button">
+                Reset Chords
+              </button>
+            </form>
           </article>
         </div>
+
+        <article class="card listen-card calibration-listen">
+          <div class="card-heading">
+            <p class="eyebrow">Live input</p>
+            <h2>Calibration Listen</h2>
+          </div>
+          <div class="frequency-readout" id="calibrationFrequency">-- Hz</div>
+          <div class="meter" aria-hidden="true">
+            <span id="calibrationMeter"></span>
+          </div>
+          <p id="calibrationHint" class="hint">
+            For single notes, play one clean note. For chords, strum several times and let the strings ring.
+          </p>
+          <p id="chordCalibrationHint" class="hint">
+            Chord calibration listens for about 5 seconds and builds a chroma fingerprint.
+          </p>
+        </article>
 
         <article class="card table-card">
           <div class="table-header">
             <div>
-              <p class="eyebrow">Saved data</p>
-              <h2>Calibration Table</h2>
+              <p class="eyebrow">Single-note data</p>
+              <h2>Saved Single Notes</h2>
             </div>
-            <span id="calibrationCount" class="pill">0 rows</span>
+            <span id="singleCalibrationCount" class="pill">0 rows</span>
           </div>
 
           <div class="table-wrap">
@@ -99,12 +133,48 @@
                   <th>Note</th>
                   <th>Fret</th>
                   <th>Frequency</th>
+                  <th>Std Dev</th>
                   <th>Saved</th>
                 </tr>
               </thead>
-              <tbody id="calibrationRows">
+              <tbody id="singleCalibrationRows">
                 <tr>
-                  <td colspan="5">No calibration data saved yet.</td>
+                  <td colspan="6">No single-note calibration data saved yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="card table-card">
+          <div class="table-header">
+            <div>
+              <p class="eyebrow">Chord data</p>
+              <h2>Saved Chord Fingerprints</h2>
+            </div>
+            <div class="table-actions">
+              <span id="chordCalibrationCount" class="pill">0 rows</span>
+              <button id="resetAllCalibration" class="ghost-button danger compact-button" type="button">
+                Reset All
+              </button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Chord</th>
+                  <th>Expected Notes</th>
+                  <th>Detected Pitch Classes</th>
+                  <th>Baseline</th>
+                  <th>Saved</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="chordCalibrationRows">
+                <tr>
+                  <td colspan="6">No chord calibration data saved yet.</td>
                 </tr>
               </tbody>
             </table>
@@ -115,20 +185,24 @@
       <section id="detectionPanel" class="panel" aria-labelledby="detectionTab">
         <div class="detection-layout">
           <article id="detectionCard" class="card result-card" data-state="idle">
-            <p class="eyebrow">Most likely match</p>
+            <p class="eyebrow">Current Detection</p>
+            <div id="detectedType" class="detected-note">Type: Unknown</div>
             <div id="detectedTitle" class="detected-title">--</div>
-            <div id="detectedNote" class="detected-note">Waiting for detection</div>
             <p id="detectionMessage" class="result-message">
-              Start detection and play one note at a time.
+              Start detection and play one clean note or strum one clear chord.
             </p>
           </article>
 
           <article class="card action-card">
-            <p class="eyebrow">Step 2</p>
+            <p class="eyebrow">Live mode</p>
             <h2>Listen Continuously</h2>
             <p class="hint">
-              The closest saved calibration point wins. For best results, tune first,
-              mute nearby strings, and let each note ring cleanly.
+              The app compares a stable single pitch against saved fret rows and
+              compares chord chroma against saved chord fingerprints.
+            </p>
+            <p class="hint">
+              Tune first, use a quiet room, keep the same mic position, strum chords
+              cleanly, let strings ring, and mute other strings for single-note tests.
             </p>
             <div class="button-row">
               <button id="startDetection" class="primary-button" type="button">Start Detection</button>
@@ -137,31 +211,51 @@
           </article>
         </div>
 
-        <div class="metrics-grid">
-          <article class="metric-card">
-            <span class="metric-label">Detected frequency</span>
-            <strong id="detectedFrequency">-- Hz</strong>
-            <div class="meter compact" aria-hidden="true">
-              <span id="detectionMeter"></span>
-            </div>
+        <div class="guess-grid">
+          <article id="singleGuessCard" class="card guess-card" data-active="false">
+            <p class="eyebrow">Best Single-Note Guess</p>
+            <h2 id="singleGuessTitle">--</h2>
+            <dl class="stat-list">
+              <div>
+                <dt>Frequency</dt>
+                <dd id="singleFrequency">-- Hz</dd>
+              </div>
+              <div>
+                <dt>Confidence</dt>
+                <dd id="singleConfidence">0%</dd>
+              </div>
+              <div>
+                <dt>Cents error</dt>
+                <dd id="singleCentsError">--</dd>
+              </div>
+              <div>
+                <dt>Status</dt>
+                <dd id="singleStatus">No single note yet</dd>
+              </div>
+            </dl>
           </article>
 
-          <article class="metric-card">
-            <span class="metric-label">Confidence</span>
-            <strong id="confidenceValue">0%</strong>
-            <div class="meter compact confidence" aria-hidden="true">
-              <span id="confidenceMeter"></span>
-            </div>
-          </article>
-
-          <article class="metric-card">
-            <span class="metric-label">Cents error</span>
-            <strong id="centsError">--</strong>
-          </article>
-
-          <article class="metric-card">
-            <span class="metric-label">Calibrated target</span>
-            <strong id="calibratedTarget">--</strong>
+          <article id="chordGuessCard" class="card guess-card" data-active="false">
+            <p class="eyebrow">Best Chord Guess</p>
+            <h2 id="chordGuessTitle">--</h2>
+            <dl class="stat-list">
+              <div>
+                <dt>Pitch classes</dt>
+                <dd id="chordPitchClasses">--</dd>
+              </div>
+              <div>
+                <dt>Confidence</dt>
+                <dd id="chordConfidence">0%</dd>
+              </div>
+              <div>
+                <dt>Closest chord</dt>
+                <dd id="closestChord">--</dd>
+              </div>
+              <div>
+                <dt>Status</dt>
+                <dd id="chordStatus">No chord yet</dd>
+              </div>
+            </dl>
           </article>
         </div>
       </section>

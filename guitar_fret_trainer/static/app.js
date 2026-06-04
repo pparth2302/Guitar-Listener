@@ -1,11 +1,16 @@
 const state = {
   strings: [],
   frets: [],
-  entries: [],
+  commonChords: [],
+  singleNotes: [],
+  chords: [],
   currentMode: "calibration",
-  calibrationRunning: false,
+  singleCalibrationRunning: false,
+  chordCalibrationRunning: false,
   detectionRunning: false,
   lastDetectionResult: null,
+  latestSingleResult: null,
+  latestChordResult: null,
 };
 
 const els = {};
@@ -26,37 +31,65 @@ function cacheElements() {
   els.detectionTab = document.querySelector("#detectionTab");
   els.calibrationPanel = document.querySelector("#calibrationPanel");
   els.detectionPanel = document.querySelector("#detectionPanel");
-  els.calibrationForm = document.querySelector("#calibrationForm");
+
+  els.singleCalibrationForm = document.querySelector("#singleCalibrationForm");
   els.stringSelect = document.querySelector("#stringSelect");
   els.fretSelect = document.querySelector("#fretSelect");
-  els.startCalibration = document.querySelector("#startCalibration");
-  els.resetCalibration = document.querySelector("#resetCalibration");
+  els.startSingleCalibration = document.querySelector("#startSingleCalibration");
+  els.resetSingleCalibration = document.querySelector("#resetSingleCalibration");
+
+  els.chordCalibrationForm = document.querySelector("#chordCalibrationForm");
+  els.chordSelect = document.querySelector("#chordSelect");
+  els.customChordName = document.querySelector("#customChordName");
+  els.expectedNotesInput = document.querySelector("#expectedNotesInput");
+  els.startChordCalibration = document.querySelector("#startChordCalibration");
+  els.resetChordCalibration = document.querySelector("#resetChordCalibration");
+  els.resetAllCalibration = document.querySelector("#resetAllCalibration");
+
   els.calibrationFrequency = document.querySelector("#calibrationFrequency");
   els.calibrationMeter = document.querySelector("#calibrationMeter");
   els.calibrationHint = document.querySelector("#calibrationHint");
-  els.calibrationRows = document.querySelector("#calibrationRows");
-  els.calibrationCount = document.querySelector("#calibrationCount");
+  els.chordCalibrationHint = document.querySelector("#chordCalibrationHint");
+
+  els.singleCalibrationRows = document.querySelector("#singleCalibrationRows");
+  els.singleCalibrationCount = document.querySelector("#singleCalibrationCount");
+  els.chordCalibrationRows = document.querySelector("#chordCalibrationRows");
+  els.chordCalibrationCount = document.querySelector("#chordCalibrationCount");
+
   els.startDetection = document.querySelector("#startDetection");
   els.stopDetection = document.querySelector("#stopDetection");
   els.detectionCard = document.querySelector("#detectionCard");
+  els.detectedType = document.querySelector("#detectedType");
   els.detectedTitle = document.querySelector("#detectedTitle");
-  els.detectedNote = document.querySelector("#detectedNote");
   els.detectionMessage = document.querySelector("#detectionMessage");
-  els.detectedFrequency = document.querySelector("#detectedFrequency");
-  els.detectionMeter = document.querySelector("#detectionMeter");
-  els.confidenceValue = document.querySelector("#confidenceValue");
-  els.confidenceMeter = document.querySelector("#confidenceMeter");
-  els.centsError = document.querySelector("#centsError");
-  els.calibratedTarget = document.querySelector("#calibratedTarget");
+
+  els.singleGuessCard = document.querySelector("#singleGuessCard");
+  els.singleGuessTitle = document.querySelector("#singleGuessTitle");
+  els.singleFrequency = document.querySelector("#singleFrequency");
+  els.singleConfidence = document.querySelector("#singleConfidence");
+  els.singleCentsError = document.querySelector("#singleCentsError");
+  els.singleStatus = document.querySelector("#singleStatus");
+
+  els.chordGuessCard = document.querySelector("#chordGuessCard");
+  els.chordGuessTitle = document.querySelector("#chordGuessTitle");
+  els.chordPitchClasses = document.querySelector("#chordPitchClasses");
+  els.chordConfidence = document.querySelector("#chordConfidence");
+  els.closestChord = document.querySelector("#closestChord");
+  els.chordStatus = document.querySelector("#chordStatus");
 }
 
 function bindEvents() {
   els.calibrationTab.addEventListener("click", () => switchMode("calibration"));
   els.detectionTab.addEventListener("click", () => switchMode("detection"));
-  els.calibrationForm.addEventListener("submit", startCalibration);
-  els.resetCalibration.addEventListener("click", resetCalibration);
+  els.singleCalibrationForm.addEventListener("submit", startSingleCalibration);
+  els.chordCalibrationForm.addEventListener("submit", startChordCalibration);
+  els.resetSingleCalibration.addEventListener("click", resetSingleCalibration);
+  els.resetChordCalibration.addEventListener("click", resetChordCalibration);
+  els.resetAllCalibration.addEventListener("click", resetAllCalibration);
   els.startDetection.addEventListener("click", startDetection);
   els.stopDetection.addEventListener("click", stopDetection);
+  els.chordSelect.addEventListener("change", syncCommonChordFields);
+  els.chordCalibrationRows.addEventListener("click", handleChordTableClick);
 }
 
 function bindLifecycleEvents() {
@@ -125,25 +158,42 @@ function connectSocket() {
     if (payload.mode === "detection" && /stopped|unable/i.test(payload.message || "")) {
       setDetectionRunning(false);
     }
-
     if (
-      payload.mode === "calibration" &&
+      payload.mode === "single_calibration" &&
       /saved|did not capture|unable/i.test(payload.message || "")
     ) {
-      setCalibrationRunning(false);
+      setSingleCalibrationRunning(false);
+    }
+    if (
+      payload.mode === "chord_calibration" &&
+      /saved|did not|unable/i.test(payload.message || "")
+    ) {
+      setChordCalibrationRunning(false);
     }
   });
 
-  socket.on("pitch_update", handlePitchUpdate);
+  socket.on("error", (payload) => {
+    showStatus(payload.message || "Backend error", "error");
+  });
 
+  socket.on("pitch_update", handlePitchUpdate);
+  socket.on("single_note_result", renderSingleResult);
+  socket.on("chord_result", renderChordResult);
   socket.on("detection_result", renderDetectionResult);
 
+  socket.on("single_calibration_saved", (payload) => {
+    applyCalibrationPayload(payload.calibration || { single_notes: payload.single_notes });
+    setSingleCalibrationRunning(false);
+  });
+
+  socket.on("chord_calibration_saved", (payload) => {
+    applyCalibrationPayload(payload.calibration || { chords: payload.chords });
+    setChordCalibrationRunning(false);
+  });
+
   socket.on("calibration_saved", (payload) => {
-    if (Array.isArray(payload.entries)) {
-      state.entries = payload.entries;
-      renderCalibrationTable();
-    }
-    setCalibrationRunning(false);
+    applyCalibrationPayload(payload.calibration || { single_notes: payload.entries });
+    setSingleCalibrationRunning(false);
   });
 }
 
@@ -152,11 +202,25 @@ async function loadCalibration() {
     const data = await requestJson("/api/calibration");
     state.strings = data.strings || [];
     state.frets = data.frets || [];
-    state.entries = data.entries || [];
+    state.commonChords = data.common_chords || [];
+    state.singleNotes = data.single_notes || data.entries || [];
+    state.chords = data.chords || [];
     populateControls();
-    renderCalibrationTable();
+    renderSingleCalibrationTable();
+    renderChordCalibrationTable();
   } catch (error) {
     showStatus(error.message, "error");
+  }
+}
+
+function applyCalibrationPayload(calibration) {
+  if (Array.isArray(calibration.single_notes)) {
+    state.singleNotes = calibration.single_notes;
+    renderSingleCalibrationTable();
+  }
+  if (Array.isArray(calibration.chords)) {
+    state.chords = calibration.chords;
+    renderChordCalibrationTable();
   }
 }
 
@@ -168,9 +232,28 @@ function populateControls() {
   els.fretSelect.innerHTML = state.frets
     .map((fret) => `<option value="${fret}">${fret}</option>`)
     .join("");
+
+  els.chordSelect.innerHTML = [
+    `<option value="">Choose common chord</option>`,
+    ...state.commonChords.map(
+      (item) => `<option value="${escapeHtml(item.name)}">${escapeHtml(item.name)}</option>`
+    ),
+  ].join("");
 }
 
-async function startCalibration(event) {
+function syncCommonChordFields() {
+  const selected = findCommonChord(els.chordSelect.value);
+  if (!selected) {
+    return;
+  }
+
+  if (!els.customChordName.value.trim()) {
+    els.customChordName.value = selected.name;
+  }
+  els.expectedNotesInput.value = selected.expected_notes.join(", ");
+}
+
+async function startSingleCalibration(event) {
   event.preventDefault();
 
   const selectedString = state.strings.find((item) => item.label === els.stringSelect.value);
@@ -179,12 +262,12 @@ async function startCalibration(event) {
     return;
   }
 
-  setCalibrationRunning(true);
+  setSingleCalibrationRunning(true);
   setCalibrationReadout(null);
   els.calibrationHint.textContent = "Listening now. Play one clean note and let it ring.";
 
   try {
-    await requestJson("/api/calibration/start", {
+    await requestJson("/api/calibration/single/start", {
       method: "POST",
       body: JSON.stringify({
         string: selectedString.label,
@@ -193,7 +276,7 @@ async function startCalibration(event) {
       }),
     });
   } catch (error) {
-    setCalibrationRunning(false);
+    setSingleCalibrationRunning(false);
     if (await recoverFromBusyAudio(error)) {
       return;
     }
@@ -201,18 +284,95 @@ async function startCalibration(event) {
   }
 }
 
-async function resetCalibration() {
-  if (!window.confirm("Delete all saved calibration data?")) {
+async function startChordCalibration(event) {
+  event.preventDefault();
+
+  const chordName = getSelectedChordName();
+  if (!chordName) {
+    showStatus("Choose or type a chord name.", "warning");
+    return;
+  }
+
+  setChordCalibrationRunning(true);
+  setCalibrationReadout(null);
+  els.chordCalibrationHint.textContent = `Listening for ${chordName}. Strum several times.`;
+
+  try {
+    await requestJson("/api/calibration/chord/start", {
+      method: "POST",
+      body: JSON.stringify({
+        chord_name: chordName,
+        expected_notes: parseExpectedNotesInput(),
+      }),
+    });
+  } catch (error) {
+    setChordCalibrationRunning(false);
+    if (await recoverFromBusyAudio(error)) {
+      return;
+    }
+    showStatus(error.message, "error");
+  }
+}
+
+async function resetSingleCalibration() {
+  if (!window.confirm("Delete all saved single-note calibration data?")) {
     return;
   }
 
   try {
-    const data = await requestJson("/api/calibration/reset", { method: "POST" });
-    state.entries = data.entries || [];
-    renderCalibrationTable();
-    resetDetectionDisplay("Calibration data cleared. Add calibration rows before detection.", {
-      clearHeldResult: true,
+    const data = await requestJson("/api/calibration/reset-single", { method: "POST" });
+    applyCalibrationPayload(data.calibration);
+    resetDetectionDisplay("Single-note calibration data cleared.", { clearHeldResult: true });
+  } catch (error) {
+    showStatus(error.message, "error");
+  }
+}
+
+async function resetChordCalibration() {
+  if (!window.confirm("Delete all saved chord calibration data?")) {
+    return;
+  }
+
+  try {
+    const data = await requestJson("/api/calibration/reset-chords", { method: "POST" });
+    applyCalibrationPayload(data.calibration);
+    resetDetectionDisplay("Chord calibration data cleared.", { clearHeldResult: true });
+  } catch (error) {
+    showStatus(error.message, "error");
+  }
+}
+
+async function resetAllCalibration() {
+  if (!window.confirm("Delete all single-note and chord calibration data?")) {
+    return;
+  }
+
+  try {
+    const data = await requestJson("/api/calibration/reset-all", { method: "POST" });
+    applyCalibrationPayload(data.calibration);
+    resetDetectionDisplay("All calibration data cleared.", { clearHeldResult: true });
+  } catch (error) {
+    showStatus(error.message, "error");
+  }
+}
+
+async function handleChordTableClick(event) {
+  const button = event.target.closest("[data-delete-chord]");
+  if (!button) {
+    return;
+  }
+
+  const chordName = button.dataset.deleteChord;
+  if (!window.confirm(`Delete chord calibration for ${chordName}?`)) {
+    return;
+  }
+
+  try {
+    const data = await requestJson("/api/calibration/chord/delete", {
+      method: "POST",
+      body: JSON.stringify({ chord_name: chordName }),
     });
+    applyCalibrationPayload(data.calibration);
   } catch (error) {
     showStatus(error.message, "error");
   }
@@ -220,7 +380,7 @@ async function resetCalibration() {
 
 async function startDetection() {
   setDetectionRunning(true);
-  resetDetectionDisplay("Listening...", { clearHeldResult: true });
+  resetDetectionDisplay("Listening for a single note or chord...", { clearHeldResult: true });
 
   try {
     await requestJson("/api/detection/start", { method: "POST" });
@@ -250,7 +410,8 @@ async function recoverFromBusyAudio(error) {
 
   try {
     const data = await requestJson("/api/audio/stop", { method: "POST" });
-    setCalibrationRunning(false);
+    setSingleCalibrationRunning(false);
+    setChordCalibrationRunning(false);
     setDetectionRunning(false);
     showStatus(
       data.stopped
@@ -276,9 +437,13 @@ function switchMode(mode) {
 }
 
 function handlePitchUpdate(payload) {
-  const frequency = payload.smoothed_frequency_hz || payload.frequency_hz;
+  const frequency =
+    payload.smoothed_frequency_hz ||
+    payload.frequency_hz ||
+    payload.single_note?.smoothed_frequency_hz ||
+    payload.single_note?.frequency_hz;
 
-  if (payload.mode === "calibration") {
+  if (payload.mode === "single_calibration") {
     setCalibrationReadout(frequency);
     const remaining = payload.seconds_remaining ?? 0;
     const stableSamples = payload.stable_samples ?? 0;
@@ -288,93 +453,151 @@ function handlePitchUpdate(payload) {
     return;
   }
 
-  if (payload.mode === "detection" && frequency) {
-    els.detectedFrequency.textContent = formatFrequency(frequency);
-    updateFrequencyMeter(els.detectionMeter, frequency);
+  if (payload.mode === "chord_calibration") {
+    updateFrequencyMeter(els.calibrationMeter, (payload.rms || 0) * 10000);
+    const remaining = payload.seconds_remaining ?? 0;
+    els.chordCalibrationHint.textContent =
+      `${payload.message || "Capturing chord..."} ${remaining.toFixed(1)}s left. RMS ${formatSmallNumber(payload.rms)}.`;
   }
 }
 
 function renderDetectionResult(result) {
-  if (result.status === "no_pitch") {
+  if (shouldHoldPreviousResult(result)) {
     renderHeldDetectionResult();
     return;
   }
 
-  els.detectionCard.dataset.state = result.status || "idle";
+  if (result.type !== "Unknown") {
+    state.lastDetectionResult = result;
+  }
 
-  if (result.status === "no_calibration") {
-    state.lastDetectionResult = null;
-    els.detectedTitle.textContent = "--";
-    els.detectedNote.textContent = "Calibration needed";
-    els.detectionMessage.textContent = result.message;
-    els.detectedFrequency.textContent = formatFrequency(result.detected_frequency_hz);
-    els.centsError.textContent = "--";
-    els.calibratedTarget.textContent = "--";
-    setConfidence(0);
+  els.detectionCard.dataset.state = result.status || "idle";
+  els.detectedType.textContent = `Type: ${result.type || "Unknown"}`;
+
+  if (result.type === "Single Note") {
+    const single = result.primary || result.single_note || {};
+    els.detectedTitle.textContent = single.string
+      ? `${single.string} / Fret ${single.fret}`
+      : "--";
+    els.detectionMessage.textContent = result.message || single.message || "Single note detected";
+    setGuessHighlight("single");
     return;
   }
 
-  state.lastDetectionResult = result;
-  els.detectedTitle.textContent = `${result.string} / Fret ${result.fret}`;
-  els.detectedNote.textContent = `${result.note} reference`;
-  els.detectionMessage.textContent = result.message;
-  els.detectedFrequency.textContent = formatFrequency(result.detected_frequency_hz);
-  els.centsError.textContent =
-    result.cents_error === null || result.cents_error === undefined
-      ? "--"
-      : `${result.cents_error > 0 ? "+" : ""}${Number(result.cents_error).toFixed(2)} cents`;
-  els.calibratedTarget.textContent = result.calibrated_frequency_hz
-    ? formatFrequency(result.calibrated_frequency_hz)
-    : "--";
-  setConfidence(result.confidence || 0);
-  updateFrequencyMeter(els.detectionMeter, result.detected_frequency_hz);
+  if (result.type === "Chord") {
+    const chord = result.primary || result.chord || {};
+    els.detectedTitle.textContent = chord.chord_name || chord.closest_chord_name || "--";
+    els.detectionMessage.textContent = result.message || chord.message || "Chord detected";
+    setGuessHighlight("chord");
+    return;
+  }
+
+  els.detectedTitle.textContent = "--";
+  els.detectionMessage.textContent =
+    result.message || "Uncertain - play one clean note or strum one clear chord";
+  setGuessHighlight(null);
+}
+
+function renderSingleResult(result) {
+  state.latestSingleResult = result;
+
+  if (result.status === "ok" || result.status === "uncertain") {
+    els.singleGuessTitle.textContent = `${result.string} / Fret ${result.fret}`;
+    els.singleFrequency.textContent = formatFrequency(result.detected_frequency_hz);
+    els.singleConfidence.textContent = `${result.confidence || 0}%`;
+    els.singleCentsError.textContent =
+      result.cents_error === null || result.cents_error === undefined
+        ? "--"
+        : `${result.cents_error > 0 ? "+" : ""}${Number(result.cents_error).toFixed(2)} cents`;
+    els.singleStatus.textContent = result.message || result.status;
+    return;
+  }
+
+  els.singleGuessTitle.textContent = "--";
+  els.singleFrequency.textContent = result.detected_frequency_hz
+    ? formatFrequency(result.detected_frequency_hz)
+    : "-- Hz";
+  els.singleConfidence.textContent = "0%";
+  els.singleCentsError.textContent = "--";
+  els.singleStatus.textContent = result.message || "No single note";
+}
+
+function renderChordResult(result) {
+  state.latestChordResult = result;
+
+  if (["confident", "possible", "uncertain"].includes(result.status)) {
+    els.chordGuessTitle.textContent = result.chord_name || result.closest_chord_name || "--";
+    els.chordPitchClasses.textContent = formatList(result.detected_pitch_classes);
+    els.chordConfidence.textContent = `${result.confidence || 0}%`;
+    els.closestChord.textContent = result.closest_chord_name || "--";
+    els.chordStatus.textContent = result.message || result.status;
+    return;
+  }
+
+  els.chordGuessTitle.textContent = "--";
+  els.chordPitchClasses.textContent = formatList(result.detected_pitch_classes);
+  els.chordConfidence.textContent = "0%";
+  els.closestChord.textContent = "--";
+  els.chordStatus.textContent = result.message || "No chord";
+}
+
+function shouldHoldPreviousResult(result) {
+  if (!state.lastDetectionResult || result.type !== "Unknown") {
+    return false;
+  }
+
+  const singleStatus = result.single_note?.status;
+  const chordStatus = result.chord?.status;
+  const singleConfidence = result.single_note?.confidence || 0;
+  const chordConfidence = result.chord?.confidence || 0;
+
+  return (
+    singleStatus === "no_pitch" &&
+    ["no_chord", "no_calibration"].includes(chordStatus) &&
+    singleConfidence === 0 &&
+    chordConfidence === 0
+  );
 }
 
 function renderHeldDetectionResult() {
-  if (!state.lastDetectionResult) {
-    els.detectionCard.dataset.state = "no_pitch";
-    els.detectedTitle.textContent = "--";
-    els.detectedNote.textContent = "No stable pitch";
-    els.detectionMessage.textContent = "No clear note detected";
-    els.detectedFrequency.textContent = "-- Hz";
-    els.centsError.textContent = "--";
-    els.calibratedTarget.textContent = "--";
-    setConfidence(0);
-    updateFrequencyMeter(els.detectionMeter, null);
-    return;
-  }
-
   const held = state.lastDetectionResult;
   els.detectionCard.dataset.state = "holding";
-  els.detectedTitle.textContent = `${held.string} / Fret ${held.fret}`;
-  els.detectedNote.textContent = `${held.note} reference`;
-  els.detectionMessage.textContent = "No new clear note detected. Holding the last string and fret.";
-  els.detectedFrequency.textContent = held.detected_frequency_hz
-    ? formatFrequency(held.detected_frequency_hz)
-    : "-- Hz";
-  els.centsError.textContent =
-    held.cents_error === null || held.cents_error === undefined
-      ? "--"
-      : `${held.cents_error > 0 ? "+" : ""}${Number(held.cents_error).toFixed(2)} cents`;
-  els.calibratedTarget.textContent = held.calibrated_frequency_hz
-    ? formatFrequency(held.calibrated_frequency_hz)
-    : "--";
-  setConfidence(held.confidence || 0);
+  els.detectedType.textContent = `Type: ${held.type} (held)`;
+
+  if (held.type === "Single Note") {
+    const single = held.primary || {};
+    els.detectedTitle.textContent = single.string
+      ? `${single.string} / Fret ${single.fret}`
+      : "--";
+    setGuessHighlight("single");
+  } else if (held.type === "Chord") {
+    const chord = held.primary || {};
+    els.detectedTitle.textContent = chord.chord_name || chord.closest_chord_name || "--";
+    setGuessHighlight("chord");
+  }
+
+  els.detectionMessage.textContent = "No new clear sound detected. Holding the last result.";
 }
 
-function renderCalibrationTable() {
-  els.calibrationCount.textContent = `${state.entries.length} ${state.entries.length === 1 ? "row" : "rows"}`;
+function setGuessHighlight(which) {
+  els.singleGuessCard.dataset.active = which === "single" ? "true" : "false";
+  els.chordGuessCard.dataset.active = which === "chord" ? "true" : "false";
+}
 
-  if (!state.entries.length) {
-    els.calibrationRows.innerHTML = `
+function renderSingleCalibrationTable() {
+  els.singleCalibrationCount.textContent =
+    `${state.singleNotes.length} ${state.singleNotes.length === 1 ? "row" : "rows"}`;
+
+  if (!state.singleNotes.length) {
+    els.singleCalibrationRows.innerHTML = `
       <tr>
-        <td colspan="5">No calibration data saved yet.</td>
+        <td colspan="6">No single-note calibration data saved yet.</td>
       </tr>
     `;
     return;
   }
 
-  els.calibrationRows.innerHTML = state.entries
+  els.singleCalibrationRows.innerHTML = state.singleNotes
     .map((entry) => {
       const saved = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : "--";
       return `
@@ -383,6 +606,7 @@ function renderCalibrationTable() {
           <td>${escapeHtml(entry.note)}</td>
           <td>${entry.fret}</td>
           <td>${formatFrequency(entry.frequency_hz)}</td>
+          <td>${entry.std_dev === null || entry.std_dev === undefined ? "--" : Number(entry.std_dev).toFixed(3)}</td>
           <td>${escapeHtml(saved)}</td>
         </tr>
       `;
@@ -390,8 +614,43 @@ function renderCalibrationTable() {
     .join("");
 }
 
+function renderChordCalibrationTable() {
+  els.chordCalibrationCount.textContent =
+    `${state.chords.length} ${state.chords.length === 1 ? "row" : "rows"}`;
+
+  if (!state.chords.length) {
+    els.chordCalibrationRows.innerHTML = `
+      <tr>
+        <td colspan="6">No chord calibration data saved yet.</td>
+      </tr>
+    `;
+    return;
+  }
+
+  els.chordCalibrationRows.innerHTML = state.chords
+    .map((entry) => {
+      const saved = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : "--";
+      const fingerprint = entry.fingerprint || {};
+      return `
+        <tr>
+          <td>${escapeHtml(entry.chord_name)}</td>
+          <td>${escapeHtml(formatList(entry.expected_notes))}</td>
+          <td>${escapeHtml(formatList(fingerprint.pitch_classes))}</td>
+          <td>${formatPercentFromUnit(fingerprint.confidence_baseline)}</td>
+          <td>${escapeHtml(saved)}</td>
+          <td>
+            <button class="tiny-button danger" type="button" data-delete-chord="${escapeHtml(entry.chord_name)}">
+              Delete
+            </button>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
 function resetDetectionDisplay(
-  message = "Start detection and play one note at a time.",
+  message = "Start detection and play one clean note or strum one clear chord.",
   options = {}
 ) {
   if (options.clearHeldResult) {
@@ -399,23 +658,43 @@ function resetDetectionDisplay(
   }
 
   els.detectionCard.dataset.state = "idle";
+  els.detectedType.textContent = "Type: Unknown";
   els.detectedTitle.textContent = "--";
-  els.detectedNote.textContent = "Waiting for detection";
   els.detectionMessage.textContent = message;
-  els.detectedFrequency.textContent = "-- Hz";
-  els.centsError.textContent = "--";
-  els.calibratedTarget.textContent = "--";
-  setConfidence(0);
-  updateFrequencyMeter(els.detectionMeter, null);
+  setGuessHighlight(null);
+  renderSingleResult({
+    status: "idle",
+    message: "No single note yet",
+    confidence: 0,
+  });
+  renderChordResult({
+    status: "idle",
+    message: "No chord yet",
+    confidence: 0,
+  });
 }
 
-function setCalibrationRunning(isRunning) {
-  state.calibrationRunning = isRunning;
-  els.startCalibration.disabled = isRunning;
-  els.resetCalibration.disabled = isRunning;
+function setSingleCalibrationRunning(isRunning) {
+  state.singleCalibrationRunning = isRunning;
+  els.startSingleCalibration.disabled = isRunning;
+  els.resetSingleCalibration.disabled = isRunning;
   els.stringSelect.disabled = isRunning;
   els.fretSelect.disabled = isRunning;
-  els.startCalibration.textContent = isRunning ? "Listening..." : "Start Calibration";
+  els.startSingleCalibration.textContent = isRunning
+    ? "Listening..."
+    : "Start Single Calibration";
+}
+
+function setChordCalibrationRunning(isRunning) {
+  state.chordCalibrationRunning = isRunning;
+  els.startChordCalibration.disabled = isRunning;
+  els.resetChordCalibration.disabled = isRunning;
+  els.chordSelect.disabled = isRunning;
+  els.customChordName.disabled = isRunning;
+  els.expectedNotesInput.disabled = isRunning;
+  els.startChordCalibration.textContent = isRunning
+    ? "Listening..."
+    : "Start Chord Calibration";
 }
 
 function setDetectionRunning(isRunning) {
@@ -437,12 +716,6 @@ function setCalibrationReadout(frequency) {
   updateFrequencyMeter(els.calibrationMeter, frequency);
 }
 
-function setConfidence(confidence) {
-  const value = Math.max(0, Math.min(100, Number(confidence) || 0));
-  els.confidenceValue.textContent = `${value}%`;
-  els.confidenceMeter.style.width = `${value}%`;
-}
-
 function updateFrequencyMeter(element, frequency) {
   if (!frequency) {
     element.style.width = "0%";
@@ -461,11 +734,56 @@ function showStatus(message, level = "info") {
   els.statusBar.className = `status-bar status-${level}`;
 }
 
+function getSelectedChordName() {
+  return els.customChordName.value.trim() || els.chordSelect.value.trim();
+}
+
+function parseExpectedNotesInput() {
+  const manual = els.expectedNotesInput.value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (manual.length) {
+    return manual;
+  }
+
+  const selected = findCommonChord(getSelectedChordName());
+  return selected ? selected.expected_notes : [];
+}
+
+function findCommonChord(name) {
+  return state.commonChords.find((item) => item.name === name);
+}
+
 function formatFrequency(value) {
   if (!value) {
     return "-- Hz";
   }
   return `${Number(value).toFixed(2)} Hz`;
+}
+
+function formatList(values) {
+  if (!Array.isArray(values) || !values.length) {
+    return "--";
+  }
+  return values.join(", ");
+}
+
+function formatPercentFromUnit(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return "--";
+  }
+  return `${Math.round(numeric * 100)}%`;
+}
+
+function formatSmallNumber(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return "--";
+  }
+  return numeric.toFixed(5);
 }
 
 async function requestJson(url, options = {}) {
