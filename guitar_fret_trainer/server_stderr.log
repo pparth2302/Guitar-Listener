@@ -1,0 +1,498 @@
+2026-06-04 00:13:08,057 INFO [guitar_fret_trainer] Starting Guitar Fret Trainer at http://127.0.0.1:5000
+2026-06-04 00:13:08,074 INFO [werkzeug] [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2026-06-04 00:13:08,074 INFO [werkzeug] [33mPress CTRL+C to quit[0m
+2026-06-04 00:13:08,107 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:08] "GET /socket.io/?EIO=4&transport=polling&t=PwGrRsL HTTP/1.1" 200 -
+2026-06-04 00:13:08,118 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:08] "GET /socket.io/?EIO=4&transport=polling&t=PwGrS2F.0&sid=mIP36wDtdMVr0HD-AAAA HTTP/1.1" 200 -
+2026-06-04 00:13:08,118 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:08] "POST /socket.io/?EIO=4&transport=polling&t=PwGrS2F&sid=mIP36wDtdMVr0HD-AAAA HTTP/1.1" 200 -
+2026-06-04 00:13:09,051 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:09] "GET / HTTP/1.1" 200 -
+2026-06-04 00:13:27,655 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:27] "GET / HTTP/1.1" 200 -
+2026-06-04 00:13:27,709 INFO [guitar_fret_trainer] system: Audio is already stopped.
+2026-06-04 00:13:27,710 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:27] "POST /api/audio/stop HTTP/1.1" 200 -
+2026-06-04 00:13:41,307 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:41] "GET / HTTP/1.1" 200 -
+2026-06-04 00:13:41,435 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:41] "GET /static/app.js HTTP/1.1" 200 -
+2026-06-04 00:13:41,441 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:41] "[36mGET /static/style.css HTTP/1.1[0m" 304 -
+2026-06-04 00:13:41,485 INFO [guitar_fret_trainer] system: Audio is already stopped.
+2026-06-04 00:13:41,485 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:41] "POST /api/audio/stop HTTP/1.1" 200 -
+2026-06-04 00:13:41,571 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:41] "GET /socket.io/?EIO=4&transport=polling&t=PwGraCu HTTP/1.1" 200 -
+2026-06-04 00:13:41,572 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:41] "GET /api/calibration HTTP/1.1" 200 -
+2026-06-04 00:13:41,585 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:41] "GET /socket.io/?EIO=4&transport=polling&t=PwGraD9&sid=aOLCPTB6LUpt2KH2AAAC HTTP/1.1" 200 -
+2026-06-04 00:13:41,586 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:41] "POST /socket.io/?EIO=4&transport=polling&t=PwGraD8&sid=aOLCPTB6LUpt2KH2AAAC HTTP/1.1" 200 -
+2026-06-04 00:13:41,593 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:41] "GET /socket.io/?EIO=4&transport=polling&t=PwGraDL&sid=aOLCPTB6LUpt2KH2AAAC HTTP/1.1" 200 -
+2026-06-04 00:13:51,770 INFO [guitar_fret_trainer] detection: Detection started using numpy-autocorrelation. Play one clean note at a time.
+2026-06-04 00:13:51,771 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:13:51] "POST /api/detection/start HTTP/1.1" 200 -
+2026-06-04 00:14:18,126 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:14:18] "GET /socket.io/?EIO=4&transport=websocket&sid=mIP36wDtdMVr0HD-AAAA HTTP/1.1" 200 -
+2026-06-04 00:14:30,446 INFO [guitar_fret_trainer] calibration: Audio engine is busy in detection mode.
+2026-06-04 00:14:30,446 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:14:30] "[31m[1mPOST /api/calibration/start HTTP/1.1[0m" 409 -
+2026-06-04 00:14:30,586 INFO [guitar_fret_trainer] detection: Detection stopped.
+2026-06-04 00:14:30,587 INFO [guitar_fret_trainer] system: Detection stopped.
+2026-06-04 00:14:30,587 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:14:30] "POST /api/audio/stop HTTP/1.1" 200 -
+2026-06-04 00:14:36,721 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:14:36,722 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:14:36] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:14:39,794 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 0 at 146.81 Hz.
+2026-06-04 00:14:39,795 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 0, 'frequency_hz': 146.81, 'timestamp': '2026-06-04T04:14:39.792750+00:00'}
+2026-06-04 00:14:43,369 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:14:43,369 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:14:43] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:14:46,459 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 0 at 146.96 Hz.
+2026-06-04 00:14:46,459 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 0, 'frequency_hz': 146.96, 'timestamp': '2026-06-04T04:14:46.446275+00:00'}
+2026-06-04 00:14:53,862 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:14:53] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:14:53,862 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:14:56,947 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 0 at 146.83 Hz.
+2026-06-04 00:14:56,947 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 0, 'frequency_hz': 146.83, 'timestamp': '2026-06-04T04:14:56.936106+00:00'}
+2026-06-04 00:14:59,984 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:14:59,985 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:14:59] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:15:03,079 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 0 at 146.87 Hz.
+2026-06-04 00:15:03,079 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 0, 'frequency_hz': 146.87, 'timestamp': '2026-06-04T04:15:03.066116+00:00'}
+2026-06-04 00:15:30,584 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:15:30,584 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:15:30] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:15:33,672 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 1 at 155.37 Hz.
+2026-06-04 00:15:33,672 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 1, 'frequency_hz': 155.37, 'timestamp': '2026-06-04T04:15:33.661472+00:00'}
+2026-06-04 00:15:36,129 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:15:36] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:15:36,129 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:15:39,215 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 1 at 155.43 Hz.
+2026-06-04 00:15:39,215 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 1, 'frequency_hz': 155.43, 'timestamp': '2026-06-04T04:15:39.205873+00:00'}
+2026-06-04 00:15:41,923 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:15:41,923 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:15:41] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:15:45,008 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 1 at 155.51 Hz.
+2026-06-04 00:15:45,008 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 1, 'frequency_hz': 155.51, 'timestamp': '2026-06-04T04:15:44.996202+00:00'}
+2026-06-04 00:15:52,780 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:15:52,780 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:15:52] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:15:55,855 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 2 at 164.39 Hz.
+2026-06-04 00:15:55,855 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 2, 'frequency_hz': 164.39, 'timestamp': '2026-06-04T04:15:55.844972+00:00'}
+2026-06-04 00:15:58,787 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:15:58,788 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:15:58] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:16:01,875 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 2 at 164.36 Hz.
+2026-06-04 00:16:01,876 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 2, 'frequency_hz': 164.36, 'timestamp': '2026-06-04T04:16:01.865789+00:00'}
+2026-06-04 00:16:06,273 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:16:06,274 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:16:06] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:16:09,365 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 2 at 164.37 Hz.
+2026-06-04 00:16:09,366 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 2, 'frequency_hz': 164.37, 'timestamp': '2026-06-04T04:16:09.355372+00:00'}
+2026-06-04 00:16:12,224 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:16:12,224 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:16:12] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:16:15,303 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 2 at 164.39 Hz.
+2026-06-04 00:16:15,303 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 2, 'frequency_hz': 164.39, 'timestamp': '2026-06-04T04:16:15.293186+00:00'}
+2026-06-04 00:16:26,485 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:16:26,485 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:16:26] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:16:29,566 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 3 at 174.05 Hz.
+2026-06-04 00:16:29,566 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 3, 'frequency_hz': 174.05, 'timestamp': '2026-06-04T04:16:29.555872+00:00'}
+2026-06-04 00:16:32,231 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:16:32] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:16:32,231 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:16:35,316 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 3 at 174.04 Hz.
+2026-06-04 00:16:35,316 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 3, 'frequency_hz': 174.04, 'timestamp': '2026-06-04T04:16:35.306082+00:00'}
+2026-06-04 00:16:37,133 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:16:37,134 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:16:37] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:16:40,217 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 3 at 174.04 Hz.
+2026-06-04 00:16:40,217 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 3, 'frequency_hz': 174.04, 'timestamp': '2026-06-04T04:16:40.206127+00:00'}
+2026-06-04 00:16:42,387 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:16:42,387 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:16:42] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:16:45,477 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 3 at 174.08 Hz.
+2026-06-04 00:16:45,478 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 3, 'frequency_hz': 174.08, 'timestamp': '2026-06-04T04:16:45.465167+00:00'}
+2026-06-04 00:16:52,484 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:16:52] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:16:52,484 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:16:55,566 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 3 at 368.89 Hz.
+2026-06-04 00:16:55,567 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 3, 'frequency_hz': 368.89, 'timestamp': '2026-06-04T04:16:55.555421+00:00'}
+2026-06-04 00:17:04,150 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:17:04] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:17:04,150 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:17:07,235 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 3 at 174.18 Hz.
+2026-06-04 00:17:07,235 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 3, 'frequency_hz': 174.18, 'timestamp': '2026-06-04T04:17:07.225380+00:00'}
+2026-06-04 00:17:09,204 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:17:09,204 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:17:09] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:17:12,290 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 3 at 174.14 Hz.
+2026-06-04 00:17:12,291 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 3, 'frequency_hz': 174.14, 'timestamp': '2026-06-04T04:17:12.277404+00:00'}
+2026-06-04 00:17:21,687 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:17:21,687 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:17:21] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:17:24,779 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 4 at 184.26 Hz.
+2026-06-04 00:17:24,780 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 4, 'frequency_hz': 184.26, 'timestamp': '2026-06-04T04:17:24.766420+00:00'}
+2026-06-04 00:17:28,561 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:17:28,561 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:17:28] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:17:31,646 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 4 at 184.31 Hz.
+2026-06-04 00:17:31,646 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 4, 'frequency_hz': 184.31, 'timestamp': '2026-06-04T04:17:31.636259+00:00'}
+2026-06-04 00:17:33,774 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:17:33,774 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:17:33] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:17:36,867 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 4 at 184.25 Hz.
+2026-06-04 00:17:36,867 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 4, 'frequency_hz': 184.25, 'timestamp': '2026-06-04T04:17:36.856357+00:00'}
+2026-06-04 00:17:38,612 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:17:38,612 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:17:38] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:17:41,696 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 4 at 368.69 Hz.
+2026-06-04 00:17:41,696 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 4, 'frequency_hz': 368.69, 'timestamp': '2026-06-04T04:17:41.685643+00:00'}
+2026-06-04 00:17:43,770 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:17:43,770 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:17:43] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:17:46,855 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 4 at 368.66 Hz.
+2026-06-04 00:17:46,855 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 4, 'frequency_hz': 368.66, 'timestamp': '2026-06-04T04:17:46.841946+00:00'}
+2026-06-04 00:17:48,763 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:17:48] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:17:48,763 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:17:51,844 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 4 at 368.64 Hz.
+2026-06-04 00:17:51,845 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 4, 'frequency_hz': 368.64, 'timestamp': '2026-06-04T04:17:51.834644+00:00'}
+2026-06-04 00:17:57,797 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:17:57,797 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:17:57] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:18:00,885 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 4 at 184.21 Hz.
+2026-06-04 00:18:00,885 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 4, 'frequency_hz': 184.21, 'timestamp': '2026-06-04T04:18:00.875120+00:00'}
+2026-06-04 00:18:02,829 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:18:02,829 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:18:02] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:18:05,918 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 4 at 184.14 Hz.
+2026-06-04 00:18:05,919 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 4, 'frequency_hz': 184.14, 'timestamp': '2026-06-04T04:18:05.907336+00:00'}
+2026-06-04 00:18:08,296 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:18:08,297 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:18:08] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:18:11,375 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 4 at 184.14 Hz.
+2026-06-04 00:18:11,375 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 4, 'frequency_hz': 184.14, 'timestamp': '2026-06-04T04:18:11.365139+00:00'}
+2026-06-04 00:18:13,046 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:18:13,046 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:18:13] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:18:16,139 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 4 at 184.23 Hz.
+2026-06-04 00:18:16,139 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 4, 'frequency_hz': 184.23, 'timestamp': '2026-06-04T04:18:16.126701+00:00'}
+2026-06-04 00:18:20,445 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:18:20] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:18:20,445 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:18:23,532 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 4 at 183.91 Hz.
+2026-06-04 00:18:23,532 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 4, 'frequency_hz': 183.91, 'timestamp': '2026-06-04T04:18:23.521474+00:00'}
+2026-06-04 00:18:25,357 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:18:25,358 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:18:25] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:18:28,441 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 4 at 183.96 Hz.
+2026-06-04 00:18:28,441 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 4, 'frequency_hz': 183.96, 'timestamp': '2026-06-04T04:18:28.431636+00:00'}
+2026-06-04 00:18:32,057 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:18:32] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:18:32,057 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:18:35,144 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 4 at 183.59 Hz.
+2026-06-04 00:18:35,144 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 4, 'frequency_hz': 183.59, 'timestamp': '2026-06-04T04:18:35.135039+00:00'}
+2026-06-04 00:18:37,178 INFO [guitar_fret_trainer] calibration: Listening for D D3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:18:37,179 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:18:37] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:18:40,264 INFO [guitar_fret_trainer] calibration: Saved D D3 fret 4 at 184.15 Hz.
+2026-06-04 00:18:40,264 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'D', 'note': 'D3', 'fret': 4, 'frequency_hz': 184.15, 'timestamp': '2026-06-04T04:18:40.254431+00:00'}
+2026-06-04 00:19:12,628 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:19:12,629 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:19:12] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:19:15,716 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 0 at 195.81 Hz.
+2026-06-04 00:19:15,716 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 0, 'frequency_hz': 195.81, 'timestamp': '2026-06-04T04:19:15.704476+00:00'}
+2026-06-04 00:19:20,813 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:19:20,814 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:19:20] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:19:23,909 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 0 at 195.72 Hz.
+2026-06-04 00:19:23,909 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 0, 'frequency_hz': 195.72, 'timestamp': '2026-06-04T04:19:23.896558+00:00'}
+2026-06-04 00:19:25,750 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:19:25,750 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:19:25] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:19:28,844 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 0 at 195.66 Hz.
+2026-06-04 00:19:28,844 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 0, 'frequency_hz': 195.66, 'timestamp': '2026-06-04T04:19:28.834569+00:00'}
+2026-06-04 00:19:48,713 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:19:48,713 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:19:48] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:19:51,794 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 1 at 207.94 Hz.
+2026-06-04 00:19:51,795 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 1, 'frequency_hz': 207.94, 'timestamp': '2026-06-04T04:19:51.780780+00:00'}
+2026-06-04 00:19:54,024 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:19:54,024 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:19:54] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:19:57,114 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 1 at 207.83 Hz.
+2026-06-04 00:19:57,114 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 1, 'frequency_hz': 207.83, 'timestamp': '2026-06-04T04:19:57.104308+00:00'}
+2026-06-04 00:19:59,045 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:19:59,045 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:19:59] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:20:02,135 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 1 at 207.81 Hz.
+2026-06-04 00:20:02,135 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 1, 'frequency_hz': 207.81, 'timestamp': '2026-06-04T04:20:02.124878+00:00'}
+2026-06-04 00:20:04,069 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:20:04] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:20:04,069 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:20:07,154 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 1 at 207.71 Hz.
+2026-06-04 00:20:07,155 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 1, 'frequency_hz': 207.71, 'timestamp': '2026-06-04T04:20:07.144634+00:00'}
+2026-06-04 00:20:13,168 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:20:13,168 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:20:13] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:20:16,254 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 1 at 220.92 Hz.
+2026-06-04 00:20:16,254 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 1, 'frequency_hz': 220.92, 'timestamp': '2026-06-04T04:20:16.244189+00:00'}
+2026-06-04 00:20:18,270 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:20:18] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:20:18,270 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:20:21,354 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 1 at 220.94 Hz.
+2026-06-04 00:20:21,354 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 1, 'frequency_hz': 220.94, 'timestamp': '2026-06-04T04:20:21.343949+00:00'}
+2026-06-04 00:20:25,951 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:20:25,951 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:20:25] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:20:29,046 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 1 at 207.77 Hz.
+2026-06-04 00:20:29,046 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 1, 'frequency_hz': 207.77, 'timestamp': '2026-06-04T04:20:29.034982+00:00'}
+2026-06-04 00:20:32,124 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:20:32,124 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:20:32] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:20:35,207 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 1 at 207.86 Hz.
+2026-06-04 00:20:35,208 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 1, 'frequency_hz': 207.86, 'timestamp': '2026-06-04T04:20:35.195076+00:00'}
+2026-06-04 00:20:36,949 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:20:36] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:20:36,949 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:20:40,033 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 1 at 207.88 Hz.
+2026-06-04 00:20:40,034 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 1, 'frequency_hz': 207.88, 'timestamp': '2026-06-04T04:20:40.024140+00:00'}
+2026-06-04 00:20:45,979 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:20:45,979 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:20:45] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:20:49,066 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 2 at 220.79 Hz.
+2026-06-04 00:20:49,066 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 2, 'frequency_hz': 220.79, 'timestamp': '2026-06-04T04:20:49.053886+00:00'}
+2026-06-04 00:20:50,902 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:20:50] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:20:50,903 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:20:53,984 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 2 at 220.60 Hz.
+2026-06-04 00:20:53,984 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 2, 'frequency_hz': 220.6, 'timestamp': '2026-06-04T04:20:53.974105+00:00'}
+2026-06-04 00:20:56,190 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:20:56,191 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:20:56] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:20:59,274 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 2 at 220.65 Hz.
+2026-06-04 00:20:59,274 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 2, 'frequency_hz': 220.65, 'timestamp': '2026-06-04T04:20:59.264259+00:00'}
+2026-06-04 00:21:01,451 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:21:01,451 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:21:01] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:21:04,533 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 2 at 220.60 Hz.
+2026-06-04 00:21:04,534 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 2, 'frequency_hz': 220.6, 'timestamp': '2026-06-04T04:21:04.523952+00:00'}
+2026-06-04 00:21:07,245 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:21:07,245 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:21:07] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:21:10,334 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 2 at 220.74 Hz.
+2026-06-04 00:21:10,334 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 2, 'frequency_hz': 220.74, 'timestamp': '2026-06-04T04:21:10.323907+00:00'}
+2026-06-04 00:21:17,212 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:21:17,213 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:21:17] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:21:20,294 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 3 at 232.82 Hz.
+2026-06-04 00:21:20,294 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 3, 'frequency_hz': 232.82, 'timestamp': '2026-06-04T04:21:20.283748+00:00'}
+2026-06-04 00:21:21,820 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:21:21] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:21:21,820 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:21:24,903 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 3 at 232.60 Hz.
+2026-06-04 00:21:24,904 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 3, 'frequency_hz': 232.6, 'timestamp': '2026-06-04T04:21:24.894050+00:00'}
+2026-06-04 00:21:30,920 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:21:30,920 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:21:30] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:21:34,008 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 3 at 232.83 Hz.
+2026-06-04 00:21:34,009 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 3, 'frequency_hz': 232.83, 'timestamp': '2026-06-04T04:21:33.995477+00:00'}
+2026-06-04 00:21:36,078 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:21:36,079 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:21:36] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:21:39,165 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 3 at 232.60 Hz.
+2026-06-04 00:21:39,166 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 3, 'frequency_hz': 232.6, 'timestamp': '2026-06-04T04:21:39.154047+00:00'}
+2026-06-04 00:21:41,303 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:21:41,303 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:21:41] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:21:44,386 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 3 at 232.60 Hz.
+2026-06-04 00:21:44,386 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 3, 'frequency_hz': 232.6, 'timestamp': '2026-06-04T04:21:44.375279+00:00'}
+2026-06-04 00:21:50,192 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:21:50,192 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:21:50] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:21:53,265 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 3 at 246.71 Hz.
+2026-06-04 00:21:53,265 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 3, 'frequency_hz': 246.71, 'timestamp': '2026-06-04T04:21:53.253207+00:00'}
+2026-06-04 00:21:59,979 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:21:59,979 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:21:59] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:22:03,064 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 3 at 233.01 Hz.
+2026-06-04 00:22:03,064 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 3, 'frequency_hz': 233.01, 'timestamp': '2026-06-04T04:22:03.054145+00:00'}
+2026-06-04 00:22:08,095 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:22:08,096 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:22:08] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:22:11,193 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 3 at 232.65 Hz.
+2026-06-04 00:22:11,193 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 3, 'frequency_hz': 232.65, 'timestamp': '2026-06-04T04:22:11.183786+00:00'}
+2026-06-04 00:22:13,107 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:22:13,107 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:22:13] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:22:16,193 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 3 at 232.62 Hz.
+2026-06-04 00:22:16,193 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 3, 'frequency_hz': 232.62, 'timestamp': '2026-06-04T04:22:16.183296+00:00'}
+2026-06-04 00:22:23,720 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:22:23,720 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:22:23] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:22:26,804 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 4 at 246.41 Hz.
+2026-06-04 00:22:26,804 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 4, 'frequency_hz': 246.41, 'timestamp': '2026-06-04T04:22:26.793935+00:00'}
+2026-06-04 00:22:28,908 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:22:28,909 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:22:28] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:22:31,992 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 4 at 246.38 Hz.
+2026-06-04 00:22:31,993 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 4, 'frequency_hz': 246.38, 'timestamp': '2026-06-04T04:22:31.983139+00:00'}
+2026-06-04 00:22:36,315 INFO [guitar_fret_trainer] calibration: Listening for G G3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:22:36,316 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:22:36] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:22:39,394 INFO [guitar_fret_trainer] calibration: Saved G G3 fret 4 at 246.58 Hz.
+2026-06-04 00:22:39,394 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'G', 'note': 'G3', 'fret': 4, 'frequency_hz': 246.58, 'timestamp': '2026-06-04T04:22:39.383822+00:00'}
+2026-06-04 00:22:53,667 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:22:53,668 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:22:53] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:22:56,757 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 0 at 246.86 Hz.
+2026-06-04 00:22:56,758 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 0, 'frequency_hz': 246.86, 'timestamp': '2026-06-04T04:22:56.746024+00:00'}
+2026-06-04 00:23:01,782 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:23:01] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:23:01,782 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:23:04,864 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 0 at 247.03 Hz.
+2026-06-04 00:23:04,864 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 0, 'frequency_hz': 247.03, 'timestamp': '2026-06-04T04:23:04.853834+00:00'}
+2026-06-04 00:23:08,052 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:23:08,052 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:23:08] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:23:11,134 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 0 at 246.85 Hz.
+2026-06-04 00:23:11,135 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 0, 'frequency_hz': 246.85, 'timestamp': '2026-06-04T04:23:11.123591+00:00'}
+2026-06-04 00:23:13,797 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:23:13,797 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:23:13] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:23:16,880 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 0 at 246.72 Hz.
+2026-06-04 00:23:16,880 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 0, 'frequency_hz': 246.72, 'timestamp': '2026-06-04T04:23:16.869962+00:00'}
+2026-06-04 00:23:19,615 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:23:19,615 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:23:19] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:23:22,699 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 0 at 246.65 Hz.
+2026-06-04 00:23:22,699 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 0, 'frequency_hz': 246.65, 'timestamp': '2026-06-04T04:23:22.689518+00:00'}
+2026-06-04 00:23:32,541 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:23:32,541 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:23:32] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:23:35,623 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 1 at 262.78 Hz.
+2026-06-04 00:23:35,623 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 1, 'frequency_hz': 262.78, 'timestamp': '2026-06-04T04:23:35.613213+00:00'}
+2026-06-04 00:23:37,300 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:23:37] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:23:37,300 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:23:40,383 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 1 at 262.56 Hz.
+2026-06-04 00:23:40,384 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 1, 'frequency_hz': 262.56, 'timestamp': '2026-06-04T04:23:40.373162+00:00'}
+2026-06-04 00:23:44,837 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:23:44] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:23:44,837 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:23:47,936 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 1 at 262.89 Hz.
+2026-06-04 00:23:47,936 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 1, 'frequency_hz': 262.89, 'timestamp': '2026-06-04T04:23:47.923862+00:00'}
+2026-06-04 00:23:49,448 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:23:49,448 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:23:49] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:23:52,534 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 1 at 262.78 Hz.
+2026-06-04 00:23:52,535 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 1, 'frequency_hz': 262.78, 'timestamp': '2026-06-04T04:23:52.523103+00:00'}
+2026-06-04 00:23:54,304 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:23:54,305 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:23:54] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:23:57,383 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 1 at 262.75 Hz.
+2026-06-04 00:23:57,384 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 1, 'frequency_hz': 262.75, 'timestamp': '2026-06-04T04:23:57.373260+00:00'}
+2026-06-04 00:24:05,533 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:24:05,533 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:24:05] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:24:08,610 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 2 at 278.15 Hz.
+2026-06-04 00:24:08,611 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 2, 'frequency_hz': 278.15, 'timestamp': '2026-06-04T04:24:08.600231+00:00'}
+2026-06-04 00:24:11,261 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:24:11] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:24:11,261 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:24:14,331 INFO [guitar_fret_trainer] calibration: Calibration did not capture a stable pitch. Try a clean single note.
+2026-06-04 00:24:20,176 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:24:20] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:24:20,176 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:24:23,263 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 2 at 277.95 Hz.
+2026-06-04 00:24:23,263 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 2, 'frequency_hz': 277.95, 'timestamp': '2026-06-04T04:24:23.253123+00:00'}
+2026-06-04 00:24:25,673 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:24:25,674 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:24:25] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:24:28,753 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 2 at 277.72 Hz.
+2026-06-04 00:24:28,753 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 2, 'frequency_hz': 277.72, 'timestamp': '2026-06-04T04:24:28.742902+00:00'}
+2026-06-04 00:24:33,123 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:24:33] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:24:33,123 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:24:36,213 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 2 at 277.58 Hz.
+2026-06-04 00:24:36,214 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 2, 'frequency_hz': 277.58, 'timestamp': '2026-06-04T04:24:36.203164+00:00'}
+2026-06-04 00:24:42,329 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:24:42] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:24:42,329 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:24:45,411 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 2 at 293.94 Hz.
+2026-06-04 00:24:45,411 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 2, 'frequency_hz': 293.94, 'timestamp': '2026-06-04T04:24:45.398805+00:00'}
+2026-06-04 00:24:47,703 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:24:47,703 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:24:47] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:24:50,794 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 2 at 293.97 Hz.
+2026-06-04 00:24:50,794 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 2, 'frequency_hz': 293.97, 'timestamp': '2026-06-04T04:24:50.783117+00:00'}
+2026-06-04 00:24:59,733 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:24:59,733 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:24:59] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:25:02,823 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 2 at 277.86 Hz.
+2026-06-04 00:25:02,823 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 2, 'frequency_hz': 277.86, 'timestamp': '2026-06-04T04:25:02.812759+00:00'}
+2026-06-04 00:25:05,429 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:25:05,429 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:25:05] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:25:08,510 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 2 at 277.64 Hz.
+2026-06-04 00:25:08,510 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 2, 'frequency_hz': 277.64, 'timestamp': '2026-06-04T04:25:08.499110+00:00'}
+2026-06-04 00:25:13,308 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:25:13,309 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:25:13] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:25:16,388 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 2 at 277.45 Hz.
+2026-06-04 00:25:16,388 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 2, 'frequency_hz': 277.45, 'timestamp': '2026-06-04T04:25:16.378737+00:00'}
+2026-06-04 00:25:28,936 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:25:28] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:25:28,936 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:25:32,023 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 3 at 294.16 Hz.
+2026-06-04 00:25:32,023 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 3, 'frequency_hz': 294.16, 'timestamp': '2026-06-04T04:25:32.012646+00:00'}
+2026-06-04 00:25:40,309 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:25:40,309 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:25:40] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:25:43,403 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 3 at 293.96 Hz.
+2026-06-04 00:25:43,403 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 3, 'frequency_hz': 293.96, 'timestamp': '2026-06-04T04:25:43.392297+00:00'}
+2026-06-04 00:25:46,436 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:25:46] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:25:46,436 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:25:49,525 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 3 at 293.72 Hz.
+2026-06-04 00:25:49,525 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 3, 'frequency_hz': 293.72, 'timestamp': '2026-06-04T04:25:49.512609+00:00'}
+2026-06-04 00:25:52,164 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:25:52,164 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:25:52] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:25:55,256 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 3 at 293.80 Hz.
+2026-06-04 00:25:55,256 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 3, 'frequency_hz': 293.8, 'timestamp': '2026-06-04T04:25:55.243195+00:00'}
+2026-06-04 00:25:58,224 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:25:58,224 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:25:58] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:26:01,309 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 3 at 293.60 Hz.
+2026-06-04 00:26:01,309 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 3, 'frequency_hz': 293.6, 'timestamp': '2026-06-04T04:26:01.298732+00:00'}
+2026-06-04 00:26:15,659 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:26:15,659 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:26:15] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:26:18,739 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 4 at 311.28 Hz.
+2026-06-04 00:26:18,739 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 4, 'frequency_hz': 311.28, 'timestamp': '2026-06-04T04:26:18.728508+00:00'}
+2026-06-04 00:26:20,953 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:26:20,954 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:26:20] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:26:24,042 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 4 at 311.21 Hz.
+2026-06-04 00:26:24,042 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 4, 'frequency_hz': 311.21, 'timestamp': '2026-06-04T04:26:24.031829+00:00'}
+2026-06-04 00:26:26,528 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:26:26,528 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:26:26] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:26:29,613 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 4 at 311.23 Hz.
+2026-06-04 00:26:29,614 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 4, 'frequency_hz': 311.23, 'timestamp': '2026-06-04T04:26:29.602420+00:00'}
+2026-06-04 00:26:32,814 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:26:32,814 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:26:32] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:26:35,903 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 4 at 311.39 Hz.
+2026-06-04 00:26:35,903 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 4, 'frequency_hz': 311.39, 'timestamp': '2026-06-04T04:26:35.892197+00:00'}
+2026-06-04 00:26:40,825 INFO [guitar_fret_trainer] calibration: Listening for B B3 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:26:40,825 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:26:40] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:26:43,912 INFO [guitar_fret_trainer] calibration: Saved B B3 fret 4 at 311.09 Hz.
+2026-06-04 00:26:43,912 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'B', 'note': 'B3', 'fret': 4, 'frequency_hz': 311.09, 'timestamp': '2026-06-04T04:26:43.902202+00:00'}
+2026-06-04 00:26:56,875 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:26:56,876 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:26:56] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:26:59,967 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 0 at 327.83 Hz.
+2026-06-04 00:26:59,968 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 0, 'frequency_hz': 327.83, 'timestamp': '2026-06-04T04:26:59.952835+00:00'}
+2026-06-04 00:27:03,421 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:27:03,421 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:27:03] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:27:06,512 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 0 at 328.16 Hz.
+2026-06-04 00:27:06,512 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 0, 'frequency_hz': 328.16, 'timestamp': '2026-06-04T04:27:06.498837+00:00'}
+2026-06-04 00:27:10,717 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 0 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:27:10,717 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:27:10] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:27:13,802 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 0 at 327.93 Hz.
+2026-06-04 00:27:13,803 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 0, 'frequency_hz': 327.93, 'timestamp': '2026-06-04T04:27:13.792732+00:00'}
+2026-06-04 00:27:22,197 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:27:22] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:27:22,197 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:27:25,284 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 1 at 347.96 Hz.
+2026-06-04 00:27:25,284 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 1, 'frequency_hz': 347.96, 'timestamp': '2026-06-04T04:27:25.272240+00:00'}
+2026-06-04 00:27:27,622 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:27:27] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:27:27,622 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:27:30,701 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 1 at 347.65 Hz.
+2026-06-04 00:27:30,702 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 1, 'frequency_hz': 347.65, 'timestamp': '2026-06-04T04:27:30.691358+00:00'}
+2026-06-04 00:27:32,524 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:27:32,524 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:27:32] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:27:35,602 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 1 at 347.54 Hz.
+2026-06-04 00:27:35,602 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 1, 'frequency_hz': 347.54, 'timestamp': '2026-06-04T04:27:35.591358+00:00'}
+2026-06-04 00:27:38,679 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 1 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:27:38,679 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:27:38] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:27:41,761 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 1 at 347.62 Hz.
+2026-06-04 00:27:41,762 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 1, 'frequency_hz': 347.62, 'timestamp': '2026-06-04T04:27:41.751631+00:00'}
+2026-06-04 00:27:54,016 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:27:54,017 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:27:54] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:27:57,103 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 2 at 368.24 Hz.
+2026-06-04 00:27:57,104 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 2, 'frequency_hz': 368.24, 'timestamp': '2026-06-04T04:27:57.091545+00:00'}
+2026-06-04 00:27:59,570 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:27:59,570 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:27:59] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:28:02,651 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 2 at 368.07 Hz.
+2026-06-04 00:28:02,651 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 2, 'frequency_hz': 368.07, 'timestamp': '2026-06-04T04:28:02.641152+00:00'}
+2026-06-04 00:28:04,951 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:28:04,951 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:28:04] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:28:08,033 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 2 at 368.10 Hz.
+2026-06-04 00:28:08,034 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 2, 'frequency_hz': 368.1, 'timestamp': '2026-06-04T04:28:08.021932+00:00'}
+2026-06-04 00:28:13,222 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:28:13,223 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:28:13] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:28:16,301 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 2 at 367.97 Hz.
+2026-06-04 00:28:16,301 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 2, 'frequency_hz': 367.97, 'timestamp': '2026-06-04T04:28:16.291244+00:00'}
+2026-06-04 00:28:18,291 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:28:18] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:28:18,291 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:28:21,371 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 2 at 367.93 Hz.
+2026-06-04 00:28:21,372 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 2, 'frequency_hz': 367.93, 'timestamp': '2026-06-04T04:28:21.361354+00:00'}
+2026-06-04 00:28:26,478 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:28:26,478 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:28:26] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:28:29,569 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 2 at 389.69 Hz.
+2026-06-04 00:28:29,569 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 2, 'frequency_hz': 389.69, 'timestamp': '2026-06-04T04:28:29.558082+00:00'}
+2026-06-04 00:28:35,149 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:28:35,149 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:28:35] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:28:38,231 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 2 at 368.14 Hz.
+2026-06-04 00:28:38,231 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 2, 'frequency_hz': 368.14, 'timestamp': '2026-06-04T04:28:38.221389+00:00'}
+2026-06-04 00:28:40,952 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:28:40,952 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:28:40] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:28:44,040 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 2 at 368.04 Hz.
+2026-06-04 00:28:44,041 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 2, 'frequency_hz': 368.04, 'timestamp': '2026-06-04T04:28:44.031038+00:00'}
+2026-06-04 00:28:46,046 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 2 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:28:46,047 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:28:46] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:28:49,130 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 2 at 367.95 Hz.
+2026-06-04 00:28:49,130 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 2, 'frequency_hz': 367.95, 'timestamp': '2026-06-04T04:28:49.120775+00:00'}
+2026-06-04 00:28:54,730 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:28:54,731 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:28:54] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:28:57,812 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 3 at 389.71 Hz.
+2026-06-04 00:28:57,813 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 3, 'frequency_hz': 389.71, 'timestamp': '2026-06-04T04:28:57.801843+00:00'}
+2026-06-04 00:28:59,923 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:28:59,924 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:28:59] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:29:03,011 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 3 at 389.66 Hz.
+2026-06-04 00:29:03,011 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 3, 'frequency_hz': 389.66, 'timestamp': '2026-06-04T04:29:03.001222+00:00'}
+2026-06-04 00:29:05,752 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:29:05,752 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:29:05] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:29:08,831 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 3 at 389.72 Hz.
+2026-06-04 00:29:08,831 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 3, 'frequency_hz': 389.72, 'timestamp': '2026-06-04T04:29:08.821083+00:00'}
+2026-06-04 00:29:13,350 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:29:13,350 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:29:13] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:29:16,442 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 3 at 389.64 Hz.
+2026-06-04 00:29:16,442 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 3, 'frequency_hz': 389.64, 'timestamp': '2026-06-04T04:29:16.431746+00:00'}
+2026-06-04 00:29:18,983 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 3 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:29:18,983 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:29:18] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:29:22,071 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 3 at 389.63 Hz.
+2026-06-04 00:29:22,071 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 3, 'frequency_hz': 389.63, 'timestamp': '2026-06-04T04:29:22.060817+00:00'}
+2026-06-04 00:29:32,282 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:29:32,282 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:29:32] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:29:35,359 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 4 at 412.96 Hz.
+2026-06-04 00:29:35,360 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 4, 'frequency_hz': 412.96, 'timestamp': '2026-06-04T04:29:35.350150+00:00'}
+2026-06-04 00:29:37,528 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:29:37,528 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:29:37] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:29:40,610 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 4 at 412.97 Hz.
+2026-06-04 00:29:40,611 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 4, 'frequency_hz': 412.97, 'timestamp': '2026-06-04T04:29:40.600776+00:00'}
+2026-06-04 00:29:44,610 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:29:44,611 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:29:44] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:29:47,693 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 4 at 412.84 Hz.
+2026-06-04 00:29:47,694 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 4, 'frequency_hz': 412.84, 'timestamp': '2026-06-04T04:29:47.680869+00:00'}
+2026-06-04 00:29:54,827 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:29:54,827 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:29:54] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:29:57,910 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 4 at 413.00 Hz.
+2026-06-04 00:29:57,911 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 4, 'frequency_hz': 413.0, 'timestamp': '2026-06-04T04:29:57.901328+00:00'}
+2026-06-04 00:30:00,198 INFO [guitar_fret_trainer] calibration: Listening for High E E4 fret 4 for 3 seconds using numpy-autocorrelation...
+2026-06-04 00:30:00,198 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:30:00] "POST /api/calibration/start HTTP/1.1" 200 -
+2026-06-04 00:30:03,280 INFO [guitar_fret_trainer] calibration: Saved High E E4 fret 4 at 412.68 Hz.
+2026-06-04 00:30:03,280 INFO [guitar_fret_trainer] Saved calibration entry: {'string': 'High E', 'note': 'E4', 'fret': 4, 'frequency_hz': 412.68, 'timestamp': '2026-06-04T04:30:03.270549+00:00'}
+2026-06-04 00:30:17,711 INFO [guitar_fret_trainer] detection: Detection started using numpy-autocorrelation. Play one clean note at a time.
+2026-06-04 00:30:17,711 INFO [werkzeug] 127.0.0.1 - - [04/Jun/2026 00:30:17] "POST /api/detection/start HTTP/1.1" 200 -

@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Guitar Fret Trainer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <div class="stage-glow" aria-hidden="true"></div>
+    <div class="fret-lines" aria-hidden="true"></div>
+
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Realtime microphone pitch mapping</p>
+        <h1>Guitar Fret Trainer</h1>
+        <p class="hero-copy">
+          Calibrate your own guitar, then let the app listen and call out the
+          closest string and fret from your saved reference tones.
+        </p>
+      </div>
+      <div class="connection-card">
+        <span id="connectionBadge" class="badge badge-waiting">Connecting</span>
+        <span class="tiny-label">Local Flask + Socket.IO</span>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <nav class="mode-tabs" aria-label="Trainer mode">
+        <button id="calibrationTab" class="mode-tab active" type="button" data-mode="calibration">
+          Calibration Mode
+        </button>
+        <button id="detectionTab" class="mode-tab" type="button" data-mode="detection">
+          Test / Detection Mode
+        </button>
+      </nav>
+
+      <section id="statusBar" class="status-bar status-info" role="status">
+        Ready. Calibrate at least one string/fret, then start detection.
+      </section>
+
+      <section id="calibrationPanel" class="panel active" aria-labelledby="calibrationTab">
+        <div class="panel-grid">
+          <article class="card control-card">
+            <div class="card-heading">
+              <p class="eyebrow">Step 1</p>
+              <h2>Save A Reference</h2>
+            </div>
+
+            <form id="calibrationForm" class="form-stack">
+              <label>
+                Guitar string
+                <select id="stringSelect" required></select>
+              </label>
+
+              <label>
+                Fret number
+                <select id="fretSelect" required></select>
+              </label>
+
+              <button id="startCalibration" class="primary-button" type="submit">
+                Start Calibration
+              </button>
+              <button id="resetCalibration" class="ghost-button danger" type="button">
+                Delete / Reset Calibration Data
+              </button>
+            </form>
+          </article>
+
+          <article class="card listen-card">
+            <div class="card-heading">
+              <p class="eyebrow">Live input</p>
+              <h2>Calibration Listen</h2>
+            </div>
+            <div class="frequency-readout" id="calibrationFrequency">-- Hz</div>
+            <div class="meter" aria-hidden="true">
+              <span id="calibrationMeter"></span>
+            </div>
+            <p id="calibrationHint" class="hint">
+              Choose a string/fret and play one clean note for the 3 second capture window.
+            </p>
+          </article>
+        </div>
+
+        <article class="card table-card">
+          <div class="table-header">
+            <div>
+              <p class="eyebrow">Saved data</p>
+              <h2>Calibration Table</h2>
+            </div>
+            <span id="calibrationCount" class="pill">0 rows</span>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>String</th>
+                  <th>Note</th>
+                  <th>Fret</th>
+                  <th>Frequency</th>
+                  <th>Saved</th>
+                </tr>
+              </thead>
+              <tbody id="calibrationRows">
+                <tr>
+                  <td colspan="5">No calibration data saved yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section id="detectionPanel" class="panel" aria-labelledby="detectionTab">
+        <div class="detection-layout">
+          <article id="detectionCard" class="card result-card" data-state="idle">
+            <p class="eyebrow">Most likely match</p>
+            <div id="detectedTitle" class="detected-title">--</div>
+            <div id="detectedNote" class="detected-note">Waiting for detection</div>
+            <p id="detectionMessage" class="result-message">
+              Start detection and play one note at a time.
+            </p>
+          </article>
+
+          <article class="card action-card">
+            <p class="eyebrow">Step 2</p>
+            <h2>Listen Continuously</h2>
+            <p class="hint">
+              The closest saved calibration point wins. For best results, tune first,
+              mute nearby strings, and let each note ring cleanly.
+            </p>
+            <div class="button-row">
+              <button id="startDetection" class="primary-button" type="button">Start Detection</button>
+              <button id="stopDetection" class="ghost-button" type="button" disabled>Stop Detection</button>
+            </div>
+          </article>
+        </div>
+
+        <div class="metrics-grid">
+          <article class="metric-card">
+            <span class="metric-label">Detected frequency</span>
+            <strong id="detectedFrequency">-- Hz</strong>
+            <div class="meter compact" aria-hidden="true">
+              <span id="detectionMeter"></span>
+            </div>
+          </article>
+
+          <article class="metric-card">
+            <span class="metric-label">Confidence</span>
+            <strong id="confidenceValue">0%</strong>
+            <div class="meter compact confidence" aria-hidden="true">
+              <span id="confidenceMeter"></span>
+            </div>
+          </article>
+
+          <article class="metric-card">
+            <span class="metric-label">Cents error</span>
+            <strong id="centsError">--</strong>
+          </article>
+
+          <article class="metric-card">
+            <span class="metric-label">Calibrated target</span>
+            <strong id="calibratedTarget">--</strong>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+  </body>
+</html>
