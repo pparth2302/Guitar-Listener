@@ -14,9 +14,22 @@ const state = {
 };
 
 const els = {};
+const FRETBOARD_STRINGS = ["High E", "B", "G", "D", "A", "Low E"];
+const CHROMATIC_SCALE = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const OPEN_STRING_MIDI = {
+  "Low E": 40,
+  A: 45,
+  D: 50,
+  G: 55,
+  B: 59,
+  "High E": 64,
+};
+const MAX_FRETBOARD_FRET = 15;
+const MIN_NOTE_CONFIDENCE = 60;
 
 document.addEventListener("DOMContentLoaded", async () => {
   cacheElements();
+  buildFretboard();
   bindEvents();
   bindLifecycleEvents();
   await stopAudioOnPageLoad();
@@ -62,6 +75,12 @@ function cacheElements() {
   els.detectedType = document.querySelector("#detectedType");
   els.detectedTitle = document.querySelector("#detectedTitle");
   els.detectionMessage = document.querySelector("#detectionMessage");
+  els.currentNoteCard = document.querySelector("#currentNoteCard");
+  els.currentNoteName = document.querySelector("#currentNoteName");
+  els.currentFullNote = document.querySelector("#currentFullNote");
+  els.currentNoteHint = document.querySelector("#currentNoteHint");
+  els.fretboard = document.querySelector("#fretboard");
+  els.fretboardStatus = document.querySelector("#fretboardStatus");
 
   els.singleGuessCard = document.querySelector("#singleGuessCard");
   els.singleGuessTitle = document.querySelector("#singleGuessTitle");
@@ -239,6 +258,48 @@ function populateControls() {
       (item) => `<option value="${escapeHtml(item.name)}">${escapeHtml(item.name)}</option>`
     ),
   ].join("");
+}
+
+function buildFretboard() {
+  const fretHeader = ["<div class=\"fretboard-corner\">String</div>"];
+  for (let fret = 0; fret <= MAX_FRETBOARD_FRET; fret += 1) {
+    fretHeader.push(`<div class="fret-number">${fret}</div>`);
+  }
+
+  const rows = FRETBOARD_STRINGS.flatMap((stringName) => {
+    const cells = [
+      `<div class="string-label" data-string-label="${escapeHtml(stringName)}">${escapeHtml(stringName)}</div>`,
+    ];
+    for (let fret = 0; fret <= MAX_FRETBOARD_FRET; fret += 1) {
+      const noteInfo = getNoteFromStringAndFret(stringName, fret);
+      cells.push(`
+        <div
+          class="fret-cell"
+          data-string="${escapeHtml(stringName)}"
+          data-fret="${fret}"
+          data-note="${escapeHtml(noteInfo.note)}"
+        >
+          <span>${escapeHtml(noteInfo.note)}</span>
+        </div>
+      `);
+    }
+    return cells;
+  });
+
+  els.fretboard.innerHTML = [...fretHeader, ...rows].join("");
+}
+
+function getNoteFromStringAndFret(stringName, fret) {
+  const openMidi = OPEN_STRING_MIDI[stringName];
+  const fretNumber = Number(fret);
+  if (!Number.isInteger(openMidi) || !Number.isFinite(fretNumber) || fretNumber < 0) {
+    return { note: "--", octave: null, full_note: "--" };
+  }
+
+  const midi = openMidi + fretNumber;
+  const note = CHROMATIC_SCALE[midi % 12];
+  const octave = Math.floor(midi / 12) - 1;
+  return { note, octave, full_note: `${note}${octave}` };
 }
 
 function syncCommonChordFields() {
@@ -480,6 +541,7 @@ function renderDetectionResult(result) {
       ? `${single.string} / Fret ${single.fret}`
       : "--";
     els.detectionMessage.textContent = result.message || single.message || "Single note detected";
+    updateNoteVisuals(single);
     setGuessHighlight("single");
     return;
   }
@@ -488,6 +550,7 @@ function renderDetectionResult(result) {
     const chord = result.primary || result.chord || {};
     els.detectedTitle.textContent = chord.chord_name || chord.closest_chord_name || "--";
     els.detectionMessage.textContent = result.message || chord.message || "Chord detected";
+    resetNoteVisuals("Chord detected. Current Note shows single-note detections only.");
     setGuessHighlight("chord");
     return;
   }
@@ -495,6 +558,7 @@ function renderDetectionResult(result) {
   els.detectedTitle.textContent = "--";
   els.detectionMessage.textContent =
     result.message || "Uncertain - play one clean note or strum one clear chord";
+  resetNoteVisuals("No confident single note detected.");
   setGuessHighlight(null);
 }
 
@@ -569,14 +633,78 @@ function renderHeldDetectionResult() {
     els.detectedTitle.textContent = single.string
       ? `${single.string} / Fret ${single.fret}`
       : "--";
+    resetNoteVisuals("No new clear note detected.");
     setGuessHighlight("single");
   } else if (held.type === "Chord") {
     const chord = held.primary || {};
     els.detectedTitle.textContent = chord.chord_name || chord.closest_chord_name || "--";
+    resetNoteVisuals("No new clear note detected.");
     setGuessHighlight("chord");
   }
 
   els.detectionMessage.textContent = "No new clear sound detected. Holding the last result.";
+}
+
+function updateNoteVisuals(singleResult) {
+  if (
+    !singleResult ||
+    singleResult.status !== "ok" ||
+    (singleResult.confidence || 0) < MIN_NOTE_CONFIDENCE ||
+    !singleResult.string ||
+    singleResult.fret === null ||
+    singleResult.fret === undefined ||
+    !singleResult.note ||
+    singleResult.note === "--"
+  ) {
+    resetNoteVisuals("Confidence is low, so the current note is hidden.");
+    return;
+  }
+
+  els.currentNoteCard.dataset.state = singleResult.validation_warning ? "warning" : "ok";
+  els.currentNoteName.textContent = singleResult.note;
+  els.currentFullNote.textContent = singleResult.full_note || "--";
+  els.currentNoteHint.textContent = singleResult.validation_warning
+    ? singleResult.validation_warning
+    : `${singleResult.string} string, fret ${singleResult.fret}`;
+  highlightFretboardPosition(singleResult.string, singleResult.fret, singleResult.note);
+}
+
+function resetNoteVisuals(message = "Play one clean single note to show note name and fret position.") {
+  els.currentNoteCard.dataset.state = "idle";
+  els.currentNoteName.textContent = "--";
+  els.currentFullNote.textContent = "--";
+  els.currentNoteHint.textContent = message;
+  clearFretboardHighlight();
+  els.fretboardStatus.textContent = "Waiting";
+}
+
+function highlightFretboardPosition(stringName, fret, note) {
+  clearFretboardHighlight();
+  const fretNumber = Number(fret);
+  const cell = Array.from(els.fretboard.querySelectorAll(".fret-cell")).find(
+    (element) => element.dataset.string === stringName && Number(element.dataset.fret) === fretNumber
+  );
+  const stringLabel = Array.from(els.fretboard.querySelectorAll(".string-label")).find(
+    (element) => element.dataset.stringLabel === stringName
+  );
+
+  if (!cell) {
+    els.fretboardStatus.textContent = "Out of range";
+    return;
+  }
+
+  cell.classList.add("active");
+  cell.querySelector("span").textContent = note || cell.dataset.note || "--";
+  if (stringLabel) {
+    stringLabel.classList.add("active");
+  }
+  els.fretboardStatus.textContent = `${stringName} fret ${fretNumber}`;
+}
+
+function clearFretboardHighlight() {
+  els.fretboard
+    .querySelectorAll(".fret-cell.active, .string-label.active")
+    .forEach((element) => element.classList.remove("active"));
 }
 
 function setGuessHighlight(which) {
@@ -661,6 +789,7 @@ function resetDetectionDisplay(
   els.detectedType.textContent = "Type: Unknown";
   els.detectedTitle.textContent = "--";
   els.detectionMessage.textContent = message;
+  resetNoteVisuals();
   setGuessHighlight(null);
   renderSingleResult({
     status: "idle",

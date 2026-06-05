@@ -19,6 +19,9 @@ Old calibration files that were a plain list of single-note rows are migrated au
 - Chord Calibration for common chords such as Em, E, Am, A, A9, C, G, D, Dm, F, B7, plus custom chord names.
 - Chord fingerprints based on FFT peaks and 12-bin chroma vectors.
 - One Detection Mode that automatically decides between Single Note, Chord, and Unknown.
+- Real-time note detection with note plus octave display, such as `E2`, `F#3`, or `C4`.
+- Visual fretboard highlighting for strings and frets 0 through 15.
+- Frequency validation that lowers confidence if the detected frequency note disagrees with the string/fret note.
 - Separate saved tables for single-note calibration rows and chord fingerprints.
 - Realtime browser updates through Flask-SocketIO.
 - JSON storage in `calibration_data.json`.
@@ -82,6 +85,17 @@ Decision rules:
 - If multiple strong pitch classes match a saved chord above threshold, the app highlights Chord.
 - If both are weak, the app shows Unknown.
 - If no new sound is detected, the UI holds the previous clear result.
+
+Current Note examples:
+
+- Low E fret 3: G.
+- A fret 3: C.
+- D fret 2: E.
+- G fret 5: C.
+- B fret 1: C.
+- High E fret 12: E.
+
+The Current Note card and fretboard highlight clear to `--` when single-note confidence is low or no clear note is detected.
 
 Chord confidence:
 

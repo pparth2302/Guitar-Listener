@@ -183,7 +183,18 @@
       </section>
 
       <section id="detectionPanel" class="panel" aria-labelledby="detectionTab">
-        <div class="detection-layout">
+        <article class="card fretboard-card">
+          <div class="table-header">
+            <div>
+              <p class="eyebrow">Visual Fretboard</p>
+              <h2>Detected Position</h2>
+            </div>
+            <span id="fretboardStatus" class="pill">Waiting</span>
+          </div>
+          <div id="fretboard" class="fretboard" aria-label="Guitar fretboard"></div>
+        </article>
+
+        <div class="detection-summary-grid">
           <article id="detectionCard" class="card result-card" data-state="idle">
             <p class="eyebrow">Current Detection</p>
             <div id="detectedType" class="detected-note">Type: Unknown</div>
@@ -193,6 +204,17 @@
             </p>
           </article>
 
+          <article id="currentNoteCard" class="card note-card" data-state="idle">
+            <p class="eyebrow">Current Note</p>
+            <div id="currentNoteName" class="current-note-name">--</div>
+            <div id="currentFullNote" class="current-full-note">--</div>
+            <p id="currentNoteHint" class="hint">
+              The note name updates when a confident single string/fret is detected.
+            </p>
+          </article>
+        </div>
+
+        <div class="detection-layout">
           <article class="card action-card">
             <p class="eyebrow">Live mode</p>
             <h2>Listen Continuously</h2>

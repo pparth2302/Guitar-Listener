@@ -22,6 +22,7 @@ from calibration_store import (
     save_chord_entry,
     save_single_note_entry,
 )
+from music_theory import frequency_from_note_info, get_note_from_string_and_fret, note_from_frequency
 
 GUITAR_STRINGS = [
     {"label": "Low E", "note": "E2"},
@@ -461,11 +462,16 @@ def _build_single_note_result(
             "status": "no_calibration",
             "message": "No single-note calibration saved yet.",
             "detected_frequency_hz": round(float(frequency_hz), 2) if frequency_hz else None,
+            "frequency": round(float(frequency_hz), 2) if frequency_hz else None,
             "string": None,
             "note": None,
+            "octave": None,
+            "full_note": "--",
             "fret": None,
             "confidence": 0,
             "cents_error": None,
+            "frequency_note": note_from_frequency(frequency_hz),
+            "validation_warning": None,
         }
 
     if not pitch_payload.get("stable") or not frequency_hz:
@@ -473,11 +479,16 @@ def _build_single_note_result(
             "status": "no_pitch",
             "message": "No clear single note detected",
             "detected_frequency_hz": None,
+            "frequency": None,
             "string": None,
             "note": None,
+            "octave": None,
+            "full_note": "--",
             "fret": None,
             "confidence": 0,
             "cents_error": None,
+            "frequency_note": note_from_frequency(frequency_hz),
+            "validation_warning": None,
         }
 
     detected_hz = float(frequency_hz)
@@ -487,19 +498,32 @@ def _build_single_note_result(
     )
     cents_error = cents_between(detected_hz, float(closest["frequency_hz"]))
     confidence = _confidence_from_cents(abs(cents_error))
+    note_info = get_note_from_string_and_fret(closest["string"], closest["fret"])
+    frequency_note = note_from_frequency(detected_hz)
+    validation = _validate_note_frequency(note_info, frequency_note, detected_hz)
+    if validation["mismatch"]:
+        confidence = max(0, confidence - validation["confidence_penalty"])
     status = "ok" if confidence >= 60 else "uncertain"
+    message = "Matched calibrated note" if status == "ok" else "Uncertain - play one clean note"
+    if validation["warning"]:
+        message = f"{message}. {validation['warning']}"
 
     return {
         "status": status,
         "type": "Single Note",
-        "message": "Matched calibrated note" if status == "ok" else "Uncertain - play one clean note",
+        "message": message,
         "detected_frequency_hz": round(detected_hz, 2),
+        "frequency": round(detected_hz, 2),
         "string": closest["string"],
-        "note": closest["note"],
+        "note": note_info["note"],
+        "octave": note_info["octave"],
+        "full_note": note_info["full_note"],
         "fret": closest["fret"],
         "calibrated_frequency_hz": closest["frequency_hz"],
         "confidence": confidence,
         "cents_error": round(cents_error, 2) if math.isfinite(cents_error) else None,
+        "frequency_note": frequency_note,
+        "validation_warning": validation["warning"],
     }
 
 
@@ -613,7 +637,7 @@ def _build_combined_detection_result(
         message = "Uncertain - play one clean note or strum one clear chord"
         primary = {}
 
-    return {
+    result = {
         "type": selected_type,
         "status": status,
         "message": message,
@@ -621,6 +645,72 @@ def _build_combined_detection_result(
         "single_note": single_result,
         "chord": chord_result,
     }
+
+    if selected_type == "Single Note":
+        result.update(
+            {
+                "string": single_result.get("string"),
+                "fret": single_result.get("fret"),
+                "frequency": single_result.get("frequency"),
+                "detected_frequency_hz": single_result.get("detected_frequency_hz"),
+                "confidence": single_result.get("confidence"),
+                "cents_error": single_result.get("cents_error"),
+                "note": single_result.get("note"),
+                "octave": single_result.get("octave"),
+                "full_note": single_result.get("full_note"),
+                "validation_warning": single_result.get("validation_warning"),
+            }
+        )
+    else:
+        result.update(
+            {
+                "string": None,
+                "fret": None,
+                "frequency": None,
+                "detected_frequency_hz": None,
+                "confidence": chord_result.get("confidence", 0) if selected_type == "Chord" else 0,
+                "cents_error": None,
+                "note": "--",
+                "octave": None,
+                "full_note": "--",
+                "validation_warning": None,
+            }
+        )
+
+    return result
+
+
+def _validate_note_frequency(
+    string_fret_note: dict[str, Any],
+    frequency_note: dict[str, Any],
+    detected_hz: float,
+) -> dict[str, Any]:
+    """Compare standard-tuning note expectation with raw frequency note.
+
+    We primarily compare pitch class rather than octave because guitar signals
+    can contain strong harmonics. A pitch-class mismatch is a stronger sign that
+    the closest calibrated string/fret may be wrong.
+    """
+    expected_note = string_fret_note.get("note")
+    measured_note = frequency_note.get("note")
+    if expected_note in {None, "--"} or measured_note in {None, "--"}:
+        return {"mismatch": False, "warning": None, "confidence_penalty": 0}
+
+    expected_frequency = frequency_from_note_info(string_fret_note)
+    expected_cents = (
+        abs(cents_between(detected_hz, expected_frequency))
+        if expected_frequency
+        else 0.0
+    )
+
+    if expected_note != measured_note:
+        return {
+            "mismatch": True,
+            "warning": "Possible mismatch detected",
+            "confidence_penalty": 30 if expected_cents > 65 else 18,
+        }
+
+    return {"mismatch": False, "warning": None, "confidence_penalty": 0}
 
 
 def _confidence_from_cents(abs_cents: float) -> int:

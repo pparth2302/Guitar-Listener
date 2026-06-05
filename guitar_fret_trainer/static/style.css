@@ -234,6 +234,7 @@ h2 {
 
 .calibration-cards,
 .panel-grid,
+.detection-summary-grid,
 .detection-layout,
 .metrics-grid,
 .guess-grid {
@@ -242,9 +243,17 @@ h2 {
 }
 
 .calibration-cards,
-.panel-grid,
-.detection-layout {
+.panel-grid {
   grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+}
+
+.detection-summary-grid {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.42fr);
+}
+
+.detection-layout {
+  grid-template-columns: 1fr;
+  margin-top: 18px;
 }
 
 .metrics-grid {
@@ -453,6 +462,54 @@ tr:last-child td {
   color: #fff6df;
 }
 
+.note-card {
+  min-height: 360px;
+  display: grid;
+  align-content: center;
+  overflow: hidden;
+  color: #fff6df;
+  background:
+    radial-gradient(circle at 80% 16%, rgba(244, 189, 121, 0.26), transparent 14rem),
+    linear-gradient(145deg, #191f1b, #2c241b);
+}
+
+.note-card .eyebrow {
+  color: #f4bd79;
+}
+
+.note-card[data-state="ok"] {
+  background:
+    radial-gradient(circle at 70% 18%, rgba(76, 199, 157, 0.36), transparent 14rem),
+    linear-gradient(145deg, #14362d, #1f231d);
+}
+
+.note-card[data-state="warning"] {
+  background:
+    radial-gradient(circle at 70% 18%, rgba(244, 189, 121, 0.38), transparent 14rem),
+    linear-gradient(145deg, #4c351c, #1f1d19);
+}
+
+.current-note-name {
+  font-family: var(--font-display);
+  font-size: clamp(5.8rem, 13vw, 11rem);
+  font-weight: 950;
+  line-height: 0.82;
+  letter-spacing: -0.1em;
+}
+
+.current-full-note {
+  margin-top: 16px;
+  color: #f3d2a3;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.note-card .hint {
+  color: rgba(255, 246, 223, 0.72);
+}
+
 .result-card .eyebrow {
   color: #f4bd79;
 }
@@ -516,6 +573,103 @@ tr:last-child td {
 .action-card {
   display: grid;
   align-content: center;
+}
+
+.fretboard-card {
+  margin-bottom: 18px;
+  color: #fff6df;
+  background:
+    radial-gradient(circle at 78% 8%, rgba(47, 124, 99, 0.18), transparent 18rem),
+    linear-gradient(145deg, #1d1812, #2b2118);
+}
+
+.fretboard-card .eyebrow,
+.fretboard-card h2 {
+  color: #fff6df;
+}
+
+.fretboard {
+  display: grid;
+  grid-template-columns: 86px repeat(16, minmax(54px, 1fr));
+  gap: 0;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 246, 223, 0.18);
+  border-radius: 22px;
+  background:
+    linear-gradient(90deg, rgba(255, 246, 223, 0.08), transparent 16%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 56px),
+    linear-gradient(180deg, #49341f, #2c2118);
+}
+
+.fretboard-corner,
+.fret-number,
+.string-label,
+.fret-cell {
+  min-height: 46px;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.fretboard-corner,
+.fret-number {
+  color: rgba(255, 246, 223, 0.7);
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.string-label {
+  z-index: 2;
+  justify-content: start;
+  padding-left: 14px;
+  color: rgba(255, 246, 223, 0.74);
+  background: rgba(0, 0, 0, 0.24);
+  font-weight: 900;
+}
+
+.string-label.active {
+  color: #fff;
+  text-shadow: 0 0 14px rgba(76, 199, 157, 0.8);
+}
+
+.fret-cell {
+  border-left: 2px solid rgba(255, 246, 223, 0.28);
+}
+
+.fret-cell::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255, 246, 223, 0.3), rgba(255, 246, 223, 0.92));
+  transform: translateY(-50%);
+}
+
+.fret-cell span {
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: 999px;
+  color: rgba(255, 246, 223, 0.78);
+  font-size: clamp(1rem, 1.45vw, 1.18rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  transition: transform 180ms ease, color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+
+.fret-cell.active span {
+  color: #10241d;
+  background: #74e1bd;
+  box-shadow:
+    0 0 0 8px rgba(116, 225, 189, 0.16),
+    0 0 32px rgba(116, 225, 189, 0.72);
+  transform: scale(1.14);
+  animation: fret-pulse 1000ms ease-in-out infinite alternate;
 }
 
 .button-row {
@@ -628,10 +782,24 @@ tr:last-child td {
   }
 }
 
+@keyframes fret-pulse {
+  from {
+    box-shadow:
+      0 0 0 5px rgba(116, 225, 189, 0.13),
+      0 0 22px rgba(116, 225, 189, 0.56);
+  }
+  to {
+    box-shadow:
+      0 0 0 10px rgba(116, 225, 189, 0.2),
+      0 0 40px rgba(116, 225, 189, 0.82);
+  }
+}
+
 @media (max-width: 840px) {
   .hero,
   .calibration-cards,
   .panel-grid,
+  .detection-summary-grid,
   .detection-layout,
   .metrics-grid,
   .guess-grid {
@@ -653,6 +821,10 @@ tr:last-child td {
 
   .frequency-readout {
     font-size: clamp(2.8rem, 15vw, 5.2rem);
+  }
+
+  .fretboard {
+    grid-template-columns: 72px repeat(16, minmax(48px, 1fr));
   }
 }
 
