@@ -575,6 +575,20 @@ tr:last-child td {
   align-content: center;
 }
 
+.detection-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.beginner-note {
+  padding: 14px 16px;
+  border: 1px solid rgba(47, 124, 99, 0.2);
+  border-radius: var(--radius-md);
+  background: rgba(205, 232, 220, 0.52);
+}
+
 .fretboard-card {
   margin-bottom: 18px;
   color: #fff6df;
@@ -672,6 +686,20 @@ tr:last-child td {
   animation: fret-pulse 1000ms ease-in-out infinite alternate;
 }
 
+.fret-cell.equivalent span {
+  color: #2b2118;
+  background: #f4bd79;
+  box-shadow:
+    0 0 0 5px rgba(244, 189, 121, 0.14),
+    0 0 20px rgba(244, 189, 121, 0.44);
+  transform: scale(1.04);
+}
+
+.fret-cell.active.equivalent span {
+  color: #10241d;
+  background: #74e1bd;
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;
@@ -720,6 +748,61 @@ tr:last-child td {
 
 .guess-card h2 {
   margin-bottom: 18px;
+}
+
+.confidence-bar {
+  height: 10px;
+  overflow: hidden;
+  margin: 18px 0;
+  border-radius: 999px;
+  background: rgba(37, 32, 24, 0.1);
+}
+
+.confidence-bar span {
+  display: block;
+  width: 0%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--red), var(--amber), var(--green));
+  transition: width 180ms ease;
+}
+
+.mini-heading {
+  margin: 14px 0 10px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.match-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.match-list li {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 250, 240, 0.48);
+}
+
+.match-list span,
+.match-list strong {
+  font-weight: 900;
+}
+
+.match-list small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  line-height: 1.4;
 }
 
 .stat-list {
@@ -801,6 +884,7 @@ tr:last-child td {
   .panel-grid,
   .detection-summary-grid,
   .detection-layout,
+  .detection-controls,
   .metrics-grid,
   .guess-grid {
     grid-template-columns: 1fr;

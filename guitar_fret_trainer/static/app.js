@@ -71,6 +71,8 @@ function cacheElements() {
 
   els.startDetection = document.querySelector("#startDetection");
   els.stopDetection = document.querySelector("#stopDetection");
+  els.detectionModeSelect = document.querySelector("#detectionModeSelect");
+  els.stringFilterSelect = document.querySelector("#stringFilterSelect");
   els.detectionCard = document.querySelector("#detectionCard");
   els.detectedType = document.querySelector("#detectedType");
   els.detectedTitle = document.querySelector("#detectedTitle");
@@ -85,16 +87,24 @@ function cacheElements() {
   els.singleGuessCard = document.querySelector("#singleGuessCard");
   els.singleGuessTitle = document.querySelector("#singleGuessTitle");
   els.singleFrequency = document.querySelector("#singleFrequency");
+  els.singleCorrected = document.querySelector("#singleCorrected");
+  els.singleHarmonic = document.querySelector("#singleHarmonic");
   els.singleConfidence = document.querySelector("#singleConfidence");
+  els.singleConfidenceBar = document.querySelector("#singleConfidenceBar");
   els.singleCentsError = document.querySelector("#singleCentsError");
   els.singleStatus = document.querySelector("#singleStatus");
+  els.singleTopMatches = document.querySelector("#singleTopMatches");
 
   els.chordGuessCard = document.querySelector("#chordGuessCard");
   els.chordGuessTitle = document.querySelector("#chordGuessTitle");
   els.chordPitchClasses = document.querySelector("#chordPitchClasses");
   els.chordConfidence = document.querySelector("#chordConfidence");
+  els.chordConfidenceBar = document.querySelector("#chordConfidenceBar");
   els.closestChord = document.querySelector("#closestChord");
+  els.chordMissingNotes = document.querySelector("#chordMissingNotes");
+  els.chordExtraNotes = document.querySelector("#chordExtraNotes");
   els.chordStatus = document.querySelector("#chordStatus");
+  els.chordTopMatches = document.querySelector("#chordTopMatches");
 }
 
 function bindEvents() {
@@ -108,6 +118,7 @@ function bindEvents() {
   els.startDetection.addEventListener("click", startDetection);
   els.stopDetection.addEventListener("click", stopDetection);
   els.chordSelect.addEventListener("change", syncCommonChordFields);
+  els.singleCalibrationRows.addEventListener("click", handleSingleNoteTableClick);
   els.chordCalibrationRows.addEventListener("click", handleChordTableClick);
 }
 
@@ -256,6 +267,13 @@ function populateControls() {
     `<option value="">Choose common chord</option>`,
     ...state.commonChords.map(
       (item) => `<option value="${escapeHtml(item.name)}">${escapeHtml(item.name)}</option>`
+    ),
+  ].join("");
+
+  els.stringFilterSelect.innerHTML = [
+    `<option value="">Any string</option>`,
+    ...state.strings.map(
+      (item) => `<option value="${escapeHtml(item.label)}">${escapeHtml(item.label)}</option>`
     ),
   ].join("");
 }
@@ -417,6 +435,32 @@ async function resetAllCalibration() {
   }
 }
 
+async function handleSingleNoteTableClick(event) {
+  const button = event.target.closest("[data-delete-single]");
+  if (!button) {
+    return;
+  }
+
+  const row = {
+    string: button.dataset.string,
+    note: button.dataset.note,
+    fret: Number(button.dataset.fret),
+  };
+  if (!window.confirm(`Delete only ${row.string} ${row.note} fret ${row.fret}?`)) {
+    return;
+  }
+
+  try {
+    const data = await requestJson("/api/calibration/single/delete", {
+      method: "POST",
+      body: JSON.stringify(row),
+    });
+    applyCalibrationPayload(data.calibration);
+  } catch (error) {
+    showStatus(error.message, "error");
+  }
+}
+
 async function handleChordTableClick(event) {
   const button = event.target.closest("[data-delete-chord]");
   if (!button) {
@@ -444,7 +488,13 @@ async function startDetection() {
   resetDetectionDisplay("Listening for a single note or chord...", { clearHeldResult: true });
 
   try {
-    await requestJson("/api/detection/start", { method: "POST" });
+    await requestJson("/api/detection/start", {
+      method: "POST",
+      body: JSON.stringify({
+        detection_mode: els.detectionModeSelect.value,
+        string_filter: els.stringFilterSelect.value,
+      }),
+    });
   } catch (error) {
     setDetectionRunning(false);
     if (await recoverFromBusyAudio(error)) {
@@ -568,12 +618,16 @@ function renderSingleResult(result) {
   if (result.status === "ok" || result.status === "uncertain") {
     els.singleGuessTitle.textContent = `${result.string} / Fret ${result.fret}`;
     els.singleFrequency.textContent = formatFrequency(result.detected_frequency_hz);
+    els.singleCorrected.textContent = formatFrequency(result.corrected_fundamental_hz);
+    els.singleHarmonic.textContent = formatHarmonicRatio(result.harmonic_ratio_used);
     els.singleConfidence.textContent = `${result.confidence || 0}%`;
+    updateConfidenceBar(els.singleConfidenceBar, result.confidence || 0);
     els.singleCentsError.textContent =
       result.cents_error === null || result.cents_error === undefined
         ? "--"
         : `${result.cents_error > 0 ? "+" : ""}${Number(result.cents_error).toFixed(2)} cents`;
     els.singleStatus.textContent = result.message || result.status;
+    renderSingleTopMatches(result.top_matches || []);
     return;
   }
 
@@ -581,9 +635,13 @@ function renderSingleResult(result) {
   els.singleFrequency.textContent = result.detected_frequency_hz
     ? formatFrequency(result.detected_frequency_hz)
     : "-- Hz";
+  els.singleCorrected.textContent = "-- Hz";
+  els.singleHarmonic.textContent = "--";
   els.singleConfidence.textContent = "0%";
+  updateConfidenceBar(els.singleConfidenceBar, 0);
   els.singleCentsError.textContent = "--";
   els.singleStatus.textContent = result.message || "No single note";
+  renderSingleTopMatches(result.top_matches || []);
 }
 
 function renderChordResult(result) {
@@ -593,16 +651,24 @@ function renderChordResult(result) {
     els.chordGuessTitle.textContent = result.chord_name || result.closest_chord_name || "--";
     els.chordPitchClasses.textContent = formatList(result.detected_pitch_classes);
     els.chordConfidence.textContent = `${result.confidence || 0}%`;
+    updateConfidenceBar(els.chordConfidenceBar, result.confidence || 0);
     els.closestChord.textContent = result.closest_chord_name || "--";
+    els.chordMissingNotes.textContent = formatList(result.missing_expected_notes);
+    els.chordExtraNotes.textContent = formatList(result.extra_detected_notes);
     els.chordStatus.textContent = result.message || result.status;
+    renderChordTopMatches(result.top_matches || []);
     return;
   }
 
   els.chordGuessTitle.textContent = "--";
   els.chordPitchClasses.textContent = formatList(result.detected_pitch_classes);
   els.chordConfidence.textContent = "0%";
+  updateConfidenceBar(els.chordConfidenceBar, 0);
   els.closestChord.textContent = "--";
+  els.chordMissingNotes.textContent = "--";
+  els.chordExtraNotes.textContent = "--";
   els.chordStatus.textContent = result.message || "No chord";
+  renderChordTopMatches(result.top_matches || []);
 }
 
 function shouldHoldPreviousResult(result) {
@@ -633,7 +699,7 @@ function renderHeldDetectionResult() {
     els.detectedTitle.textContent = single.string
       ? `${single.string} / Fret ${single.fret}`
       : "--";
-    resetNoteVisuals("No new clear note detected.");
+    updateNoteVisuals(single);
     setGuessHighlight("single");
   } else if (held.type === "Chord") {
     const chord = held.primary || {};
@@ -663,10 +729,18 @@ function updateNoteVisuals(singleResult) {
   els.currentNoteCard.dataset.state = singleResult.validation_warning ? "warning" : "ok";
   els.currentNoteName.textContent = singleResult.note;
   els.currentFullNote.textContent = singleResult.full_note || "--";
+  const alternateText = formatAlternatePositions(singleResult.alternate_positions);
   els.currentNoteHint.textContent = singleResult.validation_warning
     ? singleResult.validation_warning
-    : `${singleResult.string} string, fret ${singleResult.fret}`;
-  highlightFretboardPosition(singleResult.string, singleResult.fret, singleResult.note);
+    : alternateText
+      ? `${singleResult.string} string, fret ${singleResult.fret}. Same pitch: ${alternateText}`
+      : `${singleResult.string} string, fret ${singleResult.fret}`;
+  highlightFretboardPosition(
+    singleResult.string,
+    singleResult.fret,
+    singleResult.note,
+    singleResult.alternate_positions || []
+  );
 }
 
 function resetNoteVisuals(message = "Play one clean single note to show note name and fret position.") {
@@ -678,7 +752,7 @@ function resetNoteVisuals(message = "Play one clean single note to show note nam
   els.fretboardStatus.textContent = "Waiting";
 }
 
-function highlightFretboardPosition(stringName, fret, note) {
+function highlightFretboardPosition(stringName, fret, note, alternatePositions = []) {
   clearFretboardHighlight();
   const fretNumber = Number(fret);
   const cell = Array.from(els.fretboard.querySelectorAll(".fret-cell")).find(
@@ -698,18 +772,79 @@ function highlightFretboardPosition(stringName, fret, note) {
   if (stringLabel) {
     stringLabel.classList.add("active");
   }
+
+  alternatePositions.forEach((position) => {
+    const alternateCell = Array.from(els.fretboard.querySelectorAll(".fret-cell")).find(
+      (element) =>
+        element.dataset.string === position.string && Number(element.dataset.fret) === Number(position.fret)
+    );
+    if (!alternateCell) {
+      return;
+    }
+    alternateCell.classList.add("equivalent");
+    alternateCell.querySelector("span").textContent =
+      position.note || alternateCell.dataset.note || "--";
+  });
+
   els.fretboardStatus.textContent = `${stringName} fret ${fretNumber}`;
 }
 
 function clearFretboardHighlight() {
   els.fretboard
-    .querySelectorAll(".fret-cell.active, .string-label.active")
+    .querySelectorAll(".fret-cell.active, .fret-cell.equivalent, .string-label.active")
     .forEach((element) => element.classList.remove("active"));
+  els.fretboard
+    .querySelectorAll(".fret-cell.equivalent")
+    .forEach((element) => element.classList.remove("equivalent"));
 }
 
 function setGuessHighlight(which) {
   els.singleGuessCard.dataset.active = which === "single" ? "true" : "false";
   els.chordGuessCard.dataset.active = which === "chord" ? "true" : "false";
+}
+
+function renderSingleTopMatches(matches) {
+  if (!Array.isArray(matches) || !matches.length) {
+    els.singleTopMatches.innerHTML = "<li>--</li>";
+    return;
+  }
+
+  els.singleTopMatches.innerHTML = matches
+    .slice(0, 3)
+    .map((match) => {
+      const cents =
+        match.cents_error === null || match.cents_error === undefined
+          ? "--"
+          : `${match.cents_error > 0 ? "+" : ""}${Number(match.cents_error).toFixed(1)} cents`;
+      return `
+        <li>
+          <span>${escapeHtml(match.string)} fret ${escapeHtml(match.fret)} (${escapeHtml(match.full_note || match.note || "--")})</span>
+          <strong>${Number(match.score || match.confidence || 0).toFixed(1)}%</strong>
+          <small>${formatFrequency(match.corrected_fundamental_hz)} / ${escapeHtml(formatHarmonicRatio(match.harmonic_ratio_used))} / ${escapeHtml(cents)}</small>
+        </li>
+      `;
+    })
+    .join("");
+}
+
+function renderChordTopMatches(matches) {
+  if (!Array.isArray(matches) || !matches.length) {
+    els.chordTopMatches.innerHTML = "<li>--</li>";
+    return;
+  }
+
+  els.chordTopMatches.innerHTML = matches
+    .slice(0, 3)
+    .map(
+      (match) => `
+        <li>
+          <span>${escapeHtml(match.chord_name || "--")}</span>
+          <strong>${Number(match.confidence || 0)}%</strong>
+          <small>Missing: ${escapeHtml(formatList(match.missing_expected_notes))}; Extra: ${escapeHtml(formatList(match.extra_detected_notes))}</small>
+        </li>
+      `
+    )
+    .join("");
 }
 
 function renderSingleCalibrationTable() {
@@ -719,7 +854,7 @@ function renderSingleCalibrationTable() {
   if (!state.singleNotes.length) {
     els.singleCalibrationRows.innerHTML = `
       <tr>
-        <td colspan="6">No single-note calibration data saved yet.</td>
+        <td colspan="7">No single-note calibration data saved yet.</td>
       </tr>
     `;
     return;
@@ -736,6 +871,18 @@ function renderSingleCalibrationTable() {
           <td>${formatFrequency(entry.frequency_hz)}</td>
           <td>${entry.std_dev === null || entry.std_dev === undefined ? "--" : Number(entry.std_dev).toFixed(3)}</td>
           <td>${escapeHtml(saved)}</td>
+          <td>
+            <button
+              class="tiny-button danger"
+              type="button"
+              data-delete-single="true"
+              data-string="${escapeHtml(entry.string)}"
+              data-note="${escapeHtml(entry.note)}"
+              data-fret="${entry.fret}"
+            >
+              Delete
+            </button>
+          </td>
         </tr>
       `;
     })
@@ -830,6 +977,8 @@ function setDetectionRunning(isRunning) {
   state.detectionRunning = isRunning;
   els.startDetection.disabled = isRunning;
   els.stopDetection.disabled = !isRunning;
+  els.detectionModeSelect.disabled = isRunning;
+  els.stringFilterSelect.disabled = isRunning;
   els.startDetection.textContent = isRunning ? "Detection Running" : "Start Detection";
 }
 
@@ -897,6 +1046,39 @@ function formatList(values) {
     return "--";
   }
   return values.join(", ");
+}
+
+function formatAlternatePositions(values) {
+  if (!Array.isArray(values) || !values.length) {
+    return "";
+  }
+
+  return values
+    .slice(0, 3)
+    .map((position) => `${position.string} fret ${position.fret}`)
+    .join(", ");
+}
+
+function formatHarmonicRatio(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return "--";
+  }
+  if (numeric === 1) {
+    return "1x";
+  }
+  if (numeric === 0.5) {
+    return "0.5x";
+  }
+  return `${numeric}x`;
+}
+
+function updateConfidenceBar(element, value) {
+  if (!element) {
+    return;
+  }
+  const numeric = Math.max(0, Math.min(100, Number(value) || 0));
+  element.style.width = `${numeric.toFixed(1)}%`;
 }
 
 function formatPercentFromUnit(value) {

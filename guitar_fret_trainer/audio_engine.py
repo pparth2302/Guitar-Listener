@@ -15,6 +15,8 @@ import time
 from collections import deque
 from typing import Any, Callable
 
+from music_theory import frequency_from_note_info, get_note_from_string_and_fret
+
 try:
     import aubio
 
@@ -125,6 +127,8 @@ def extract_chord_fingerprint(
     chroma = np.zeros(12, dtype=np.float64)
     peak_strengths: dict[float, float] = {}
     centroid_values: list[float] = []
+    bandwidth_values: list[float] = []
+    zcr_values: list[float] = []
     active_frames = 0
 
     if len(audio) < frame_size:
@@ -141,7 +145,7 @@ def extract_chord_fingerprint(
             continue
 
         active_frames += 1
-        frame_chroma, peaks, centroid = _analyze_fft_frame(
+        frame_chroma, peaks, centroid, bandwidth = _analyze_fft_frame(
             frame,
             sample_rate,
             min_frequency_hz=min_frequency_hz,
@@ -150,6 +154,9 @@ def extract_chord_fingerprint(
         chroma += frame_chroma
         if centroid > 0:
             centroid_values.append(centroid)
+        if bandwidth > 0:
+            bandwidth_values.append(bandwidth)
+        zcr_values.append(_zero_crossing_rate(frame))
 
         for frequency_hz, strength in peaks:
             bucket = round(float(frequency_hz), 1)
@@ -182,6 +189,15 @@ def extract_chord_fingerprint(
             reverse=True,
         )
     ][:12]
+    dominant_strengths = [
+        strength
+        for _frequency, strength in sorted(
+            peak_strengths.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+    ][:12]
+    max_strength = max(dominant_strengths) if dominant_strengths else 0.0
 
     confidence_baseline = 0.0
     if pitch_class_strengths:
@@ -194,11 +210,64 @@ def extract_chord_fingerprint(
         "spectral_centroid_avg": round(float(statistics.fmean(centroid_values)), 3)
         if centroid_values
         else 0.0,
+        "spectral_bandwidth": round(float(statistics.fmean(bandwidth_values)), 3)
+        if bandwidth_values
+        else 0.0,
         "chroma_vector": [round(float(value), 6) for value in chroma_vector],
         "confidence_baseline": round(confidence_baseline, 3),
+        "harmonic_strengths": [
+            round(float(strength / max_strength), 3) if max_strength > 0 else 0.0
+            for strength in dominant_strengths
+        ],
         "rms": round(total_rms, 5),
+        "zero_crossing_rate": round(float(statistics.fmean(zcr_values)), 5)
+        if zcr_values
+        else 0.0,
+        "attack_time_ms": _attack_time_ms(audio, sample_rate),
+        "decay_profile": _decay_profile(audio),
         "active_frames": active_frames,
         "message": "Chord fingerprint extracted",
+    }
+
+
+def extract_single_note_fingerprint(
+    audio_buffer: Any,
+    sample_rate: int,
+    *,
+    detected_frequency_hz: float,
+    fundamental_frequency_hz: float,
+    harmonic_ratio_used: int,
+    string_name: str,
+    fret: int,
+    note_name: str,
+    rms_threshold: float = 0.008,
+) -> dict[str, Any]:
+    """Create a compact spectral signature for one calibrated string/fret."""
+    fingerprint = extract_chord_fingerprint(
+        audio_buffer,
+        sample_rate,
+        rms_threshold=rms_threshold,
+        min_frequency_hz=40.0,
+        max_frequency_hz=1800.0,
+    )
+    return {
+        "fundamental_frequency_hz": round(float(fundamental_frequency_hz), 2),
+        "detected_frequency_hz": round(float(detected_frequency_hz), 2),
+        "harmonic_ratio_used": harmonic_ratio_used,
+        "harmonic_peaks_hz": fingerprint.get("dominant_frequencies", []),
+        "harmonic_strengths": fingerprint.get("harmonic_strengths", []),
+        "spectral_centroid": fingerprint.get("spectral_centroid_avg", 0.0),
+        "spectral_bandwidth": fingerprint.get("spectral_bandwidth", 0.0),
+        "rms_energy": fingerprint.get("rms", 0.0),
+        "zero_crossing_rate": fingerprint.get("zero_crossing_rate", 0.0),
+        "chroma_vector": fingerprint.get("chroma_vector", [0.0] * 12),
+        "attack_time_ms": fingerprint.get("attack_time_ms", 0.0),
+        "decay_profile": fingerprint.get("decay_profile", []),
+        "string_name": string_name,
+        "fret": int(fret),
+        "note_name": note_name,
+        "source": "recorded",
+        "needs_recalibration": False,
     }
 
 
@@ -208,7 +277,7 @@ def _analyze_fft_frame(
     *,
     min_frequency_hz: float,
     max_frequency_hz: float,
-) -> tuple[Any, list[tuple[float, float]], float]:
+) -> tuple[Any, list[tuple[float, float]], float, float]:
     frame = np.asarray(frame, dtype=np.float32)
     frame = frame - float(np.mean(frame))
     windowed = frame * np.hanning(len(frame))
@@ -219,9 +288,15 @@ def _analyze_fft_frame(
     masked_freqs = frequencies[mask]
     masked_mags = spectrum[mask]
     if len(masked_mags) < 3 or float(np.max(masked_mags)) <= 1e-12:
-        return np.zeros(12, dtype=np.float64), [], 0.0
+        return np.zeros(12, dtype=np.float64), [], 0.0, 0.0
 
     centroid = float(np.sum(masked_freqs * masked_mags) / max(float(np.sum(masked_mags)), 1e-12))
+    bandwidth = float(
+        np.sqrt(
+            np.sum(((masked_freqs - centroid) ** 2) * masked_mags)
+            / max(float(np.sum(masked_mags)), 1e-12)
+        )
+    )
     peaks = _find_spectral_peaks(masked_freqs, masked_mags)
     chroma = np.zeros(12, dtype=np.float64)
 
@@ -235,7 +310,7 @@ def _analyze_fft_frame(
         weight = float(magnitude) / math.sqrt(max(float(frequency_hz), 1.0))
         chroma[pitch_index] += weight
 
-    return chroma, peaks, centroid
+    return chroma, peaks, centroid, bandwidth
 
 
 def _find_spectral_peaks(
@@ -284,9 +359,14 @@ def _empty_fingerprint(message: str, *, rms: float = 0.0) -> dict[str, Any]:
         "pitch_classes": [],
         "pitch_class_strengths": {},
         "spectral_centroid_avg": 0.0,
+        "spectral_bandwidth": 0.0,
         "chroma_vector": [0.0] * 12,
         "confidence_baseline": 0.0,
+        "harmonic_strengths": [],
         "rms": round(float(rms), 5),
+        "zero_crossing_rate": 0.0,
+        "attack_time_ms": 0.0,
+        "decay_profile": [],
         "active_frames": 0,
         "message": message,
     }
@@ -297,6 +377,62 @@ def _rms(samples: Any) -> float:
         return 0.0
     values = np.asarray(samples, dtype=np.float32).reshape(-1)
     return float(np.sqrt(np.mean(np.square(values)))) if len(values) else 0.0
+
+
+def _zero_crossing_rate(samples: Any) -> float:
+    if np is None:
+        return 0.0
+    values = np.asarray(samples, dtype=np.float32).reshape(-1)
+    if len(values) < 2:
+        return 0.0
+    crossings = np.count_nonzero(np.diff(np.signbit(values)))
+    return float(crossings / max(len(values) - 1, 1))
+
+
+def _attack_time_ms(samples: Any, sample_rate: int) -> float:
+    if np is None or sample_rate <= 0:
+        return 0.0
+    values = np.abs(np.asarray(samples, dtype=np.float32).reshape(-1))
+    if len(values) == 0:
+        return 0.0
+    peak = float(np.max(values))
+    if peak <= 1e-9:
+        return 0.0
+    threshold = peak * 0.72
+    index = int(np.argmax(values >= threshold))
+    return round((index / sample_rate) * 1000.0, 2)
+
+
+def _decay_profile(samples: Any, buckets: int = 8) -> list[float]:
+    if np is None:
+        return []
+    values = np.asarray(samples, dtype=np.float32).reshape(-1)
+    if len(values) == 0:
+        return []
+    chunks = np.array_split(values, buckets)
+    rms_values = [_rms(chunk) for chunk in chunks if len(chunk)]
+    peak = max(rms_values) if rms_values else 0.0
+    if peak <= 1e-9:
+        return [0.0 for _value in rms_values]
+    return [round(float(value / peak), 3) for value in rms_values]
+
+
+def _correct_frequency_to_expected(detected_hz: float, expected_hz: float) -> tuple[float, int]:
+    if detected_hz <= 0 or expected_hz <= 0:
+        return round(float(detected_hz), 2), 1
+
+    candidates = [
+        (detected_hz, 1),
+        (detected_hz / 2.0, 2),
+        (detected_hz / 3.0, 3),
+        (detected_hz / 4.0, 4),
+        (detected_hz * 2.0, -2),
+    ]
+    corrected_hz, ratio = min(
+        candidates,
+        key=lambda item: abs(cents_between(item[0], expected_hz)),
+    )
+    return round(float(corrected_hz), 2), ratio
 
 
 def _previous_power_of_two(value: int) -> int:
@@ -791,7 +927,10 @@ class AudioEngine:
         completion_callback: CalibrationCallback,
         status_callback: StatusCallback,
     ) -> None:
-        readings: list[float] = []
+        readings: list[dict[str, float]] = []
+        stable_blocks: list[Any] = []
+        rejected_counts: dict[str, int] = {}
+        last_accepted_frequency: float | None = None
         latest_payload: dict[str, Any] | None = None
         data_lock = threading.Lock()
 
@@ -814,21 +953,37 @@ class AudioEngine:
             return
 
         def callback(indata: Any, frames: int, time_info: Any, status: Any) -> None:
-            nonlocal latest_payload
+            nonlocal latest_payload, last_accepted_frequency
             if status and self.logger:
                 self.logger.warning("Audio callback status during single calibration: %s", status)
             try:
-                payload = processor.process(indata[:, 0])
+                mono = np.asarray(indata[:, 0], dtype=np.float32).copy()
+                payload = processor.process(mono)
             except Exception as exc:
                 if self.logger:
                     self.logger.exception("Pitch processing failed during calibration")
                 payload = self._error_pitch_payload("Pitch detection failed", exc)
+                mono = np.asarray(indata[:, 0], dtype=np.float32).copy()
 
-            if payload.get("stable") and payload.get("smoothed_frequency_hz"):
-                with data_lock:
-                    readings.append(float(payload["smoothed_frequency_hz"]))
-
+            reject_reason = self._calibration_reject_reason(payload, last_accepted_frequency)
             with data_lock:
+                if reject_reason:
+                    rejected_counts[reject_reason] = rejected_counts.get(reject_reason, 0) + 1
+                else:
+                    frequency = float(payload["smoothed_frequency_hz"])
+                    readings.append(
+                        {
+                            "frequency_hz": frequency,
+                            "rms": float(payload.get("rms", 0.0) or 0.0),
+                            "pitch_confidence": float(
+                                payload.get("detector_confidence", payload.get("aubio_confidence", 0.0))
+                                or 0.0
+                            ),
+                        }
+                    )
+                    stable_blocks.append(mono)
+                    last_accepted_frequency = frequency
+
                 latest_payload = payload
 
         self._safe_status(
@@ -858,6 +1013,7 @@ class AudioEngine:
                     with data_lock:
                         payload = dict(latest_payload) if latest_payload else None
                         sample_count = len(readings)
+                        rejected = dict(rejected_counts)
 
                     if payload:
                         payload.update(
@@ -865,29 +1021,88 @@ class AudioEngine:
                                 "mode": "single_calibration",
                                 "seconds_remaining": round(seconds_remaining, 1),
                                 "stable_samples": sample_count,
+                                "rejected_samples": rejected,
                             }
                         )
                         self._safe_pitch(pitch_callback, payload)
 
             with data_lock:
-                stable_values = list(readings)
-            summary = self._summarize_stable_values(stable_values)
+                stable_readings = list(readings)
+                captured_blocks = [block.copy() for block in stable_blocks]
+                rejected = dict(rejected_counts)
+            summary = self._summarize_stable_readings(stable_readings)
 
             if summary is None:
+                if self.logger:
+                    self.logger.info(
+                        "Rejected single-note calibration for %s fret %s. accepted=%s rejected=%s",
+                        string_label,
+                        fret,
+                        len(stable_readings),
+                        rejected,
+                    )
                 completion_callback(
                     None,
                     {
-                        "samples": len(stable_values),
-                        "message": "Calibration did not capture a stable pitch. Try a clean single note.",
+                        "samples": len(stable_readings),
+                        "sample_count": len(stable_readings),
+                        "rejected_samples": rejected,
+                        "message": (
+                            "Calibration did not capture enough clean stable pitch frames. "
+                            "Try one clean note in a quiet room."
+                        ),
                     },
                 )
             else:
-                average_hz, std_dev = summary
+                note_info = get_note_from_string_and_fret(string_label, fret)
+                expected_hz = frequency_from_note_info(note_info) or summary["average_frequency_hz"]
+                corrected_hz, harmonic_ratio = _correct_frequency_to_expected(
+                    summary["average_frequency_hz"],
+                    expected_hz,
+                )
+                fingerprint = None
+                if captured_blocks:
+                    try:
+                        fingerprint = extract_single_note_fingerprint(
+                            np.concatenate(captured_blocks),
+                            self.sample_rate,
+                            detected_frequency_hz=summary["average_frequency_hz"],
+                            fundamental_frequency_hz=corrected_hz,
+                            harmonic_ratio_used=harmonic_ratio,
+                            string_name=string_label,
+                            fret=fret,
+                            note_name=note_info.get("full_note", note),
+                            rms_threshold=self.rms_threshold,
+                        )
+                    except Exception:
+                        if self.logger:
+                            self.logger.exception("Unable to build single-note fingerprint")
+
+                if self.logger:
+                    self.logger.info(
+                        (
+                            "Saved calibration summary for %s fret %s: avg=%.2f median=%.2f "
+                            "std=%.3f corrected=%.2f harmonic=%s samples=%s rejected=%s"
+                        ),
+                        string_label,
+                        fret,
+                        summary["average_frequency_hz"],
+                        summary["median_frequency_hz"],
+                        summary["std_dev"],
+                        corrected_hz,
+                        harmonic_ratio,
+                        summary["sample_count"],
+                        rejected,
+                    )
                 completion_callback(
-                    round(average_hz, 2),
+                    round(summary["average_frequency_hz"], 2),
                     {
-                        "samples": len(stable_values),
-                        "std_dev": round(std_dev, 3),
+                        **summary,
+                        "samples": summary["sample_count"],
+                        "corrected_fundamental_hz": corrected_hz,
+                        "harmonic_ratio_used": harmonic_ratio,
+                        "fingerprint": fingerprint,
+                        "rejected_samples": rejected,
                         "message": "Single-note calibration captured successfully.",
                     },
                 )
@@ -1178,23 +1393,81 @@ class AudioEngine:
             "timestamp": time.time(),
         }
 
+    def _calibration_reject_reason(
+        self,
+        payload: dict[str, Any],
+        last_accepted_frequency: float | None,
+    ) -> str | None:
+        frequency_hz = payload.get("smoothed_frequency_hz")
+        if not payload.get("stable") or not frequency_hz:
+            return str(payload.get("message") or "unstable_pitch")
+
+        rms = float(payload.get("rms", 0.0) or 0.0)
+        if rms < self.rms_threshold:
+            return "rms_too_low"
+
+        confidence = float(
+            payload.get("detector_confidence", payload.get("aubio_confidence", 0.0)) or 0.0
+        )
+        if confidence < self.min_aubio_confidence:
+            return "pitch_confidence_too_low"
+
+        if last_accepted_frequency:
+            jump_percent = abs(float(frequency_hz) - last_accepted_frequency) / last_accepted_frequency
+            if jump_percent > 0.03:
+                return "frequency_jump_over_3_percent"
+
+        return None
+
     @staticmethod
-    def _summarize_stable_values(values: list[float]) -> tuple[float, float] | None:
-        """Average stable values after trimming outliers around the median."""
-        if len(values) < 5:
+    def _summarize_stable_readings(readings: list[dict[str, float]]) -> dict[str, Any] | None:
+        """Summarize clean stable frames after trimming outliers around the median."""
+        if len(readings) < 20:
             return None
 
-        median_hz = float(statistics.median(values))
-        best_values = [
-            value for value in values if abs(cents_between(value, median_hz)) <= 8.0
+        frequencies = [float(item["frequency_hz"]) for item in readings]
+        median_hz = float(statistics.median(frequencies))
+        best_readings = [
+            item
+            for item in readings
+            if abs(cents_between(float(item["frequency_hz"]), median_hz)) <= 8.0
         ]
-        if len(best_values) < 5:
-            best_values = [
-                value for value in values if abs(cents_between(value, median_hz)) <= 15.0
+        if len(best_readings) < 20:
+            best_readings = [
+                item
+                for item in readings
+                if abs(cents_between(float(item["frequency_hz"]), median_hz)) <= 15.0
             ]
-        if len(best_values) < 5:
+        if len(best_readings) < 20:
             return None
 
+        best_values = [float(item["frequency_hz"]) for item in best_readings]
         average = float(statistics.fmean(best_values))
         std_dev = float(statistics.pstdev(best_values)) if len(best_values) > 1 else 0.0
-        return average, std_dev
+        std_cents = (
+            float(statistics.pstdev([cents_between(value, median_hz) for value in best_values]))
+            if len(best_values) > 1
+            else 0.0
+        )
+        if std_cents > 12.0:
+            return None
+
+        return {
+            "average_frequency_hz": round(average, 2),
+            "median_frequency_hz": round(median_hz, 2),
+            "std_dev": round(std_dev, 3),
+            "std_dev_cents": round(std_cents, 3),
+            "rms_avg": round(
+                float(statistics.fmean(float(item.get("rms", 0.0)) for item in best_readings)),
+                5,
+            ),
+            "pitch_confidence_avg": round(
+                float(
+                    statistics.fmean(
+                        float(item.get("pitch_confidence", 0.0)) for item in best_readings
+                    )
+                ),
+                3,
+            ),
+            "sample_count": len(best_readings),
+        }

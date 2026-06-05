@@ -14,6 +14,7 @@ from flask_socketio import SocketIO, emit
 from audio_engine import AudioEngine, compare_chroma_vectors, cents_between
 from calibration_store import (
     delete_chord_entry,
+    delete_single_note_entry,
     ensure_store,
     load_calibration,
     reset_all,
@@ -34,6 +35,8 @@ GUITAR_STRINGS = [
 ]
 
 FRETS = list(range(13))
+STRING_ORDER = {item["label"]: index for index, item in enumerate(GUITAR_STRINGS)}
+EQUIVALENT_POSITION_TIE_CENTS = 2.0
 
 COMMON_CHORDS = {
     "Em": ["E", "G", "B"],
@@ -73,6 +76,8 @@ def api_get_calibration() -> Any:
     return jsonify(
         {
             "ok": True,
+            "version": data.get("version", 1),
+            "settings": data.get("settings", {}),
             "single_notes": data["single_notes"],
             "chords": data["chords"],
             "entries": data["single_notes"],  # Backward-compatible key.
@@ -114,7 +119,21 @@ def api_start_single_calibration() -> Any:
             "note": note,
             "fret": fret,
             "frequency_hz": round(float(average_hz), 2),
+            "average_frequency_hz": stats.get("average_frequency_hz", round(float(average_hz), 2)),
+            "median_frequency_hz": stats.get("median_frequency_hz", round(float(average_hz), 2)),
             "std_dev": stats.get("std_dev"),
+            "rms_avg": stats.get("rms_avg"),
+            "pitch_confidence_avg": stats.get("pitch_confidence_avg"),
+            "sample_count": stats.get("sample_count", stats.get("samples", 0)),
+            "fingerprint": stats.get("fingerprint"),
+            "quality": {
+                "warnings": [
+                    "Detected calibration pitch was corrected as a harmonic."
+                ]
+                if abs(int(stats.get("harmonic_ratio_used", 1) or 1)) != 1
+                else [],
+                "needs_recalibration": False,
+            },
             "timestamp": _now_iso(),
         }
         calibration = save_single_note_entry(entry)
@@ -247,6 +266,38 @@ def api_reset_single() -> Any:
     return jsonify({"ok": True, "calibration": calibration})
 
 
+@app.post("/api/calibration/single/delete")
+def api_delete_single() -> Any:
+    data = request.get_json(silent=True) or {}
+    string_label = str(data.get("string", "")).strip()
+    note = str(data.get("note", "")).strip()
+    try:
+        fret = int(data.get("fret"))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "message": "Choose a valid fret to delete."}), 400
+
+    if not string_label or not note:
+        return jsonify({"ok": False, "message": "Choose a valid single-note row to delete."}), 400
+
+    calibration = delete_single_note_entry(string_label, note, fret)
+    socketio.emit(
+        "single_calibration_saved",
+        {"entry": None, "single_notes": calibration["single_notes"], "calibration": calibration},
+    )
+    socketio.emit(
+        "calibration_saved",
+        {"entry": None, "entries": calibration["single_notes"], "calibration": calibration},
+    )
+    _emit_status(
+        {
+            "level": "success",
+            "mode": "single_calibration",
+            "message": f"Deleted {string_label} {note} fret {fret}.",
+        }
+    )
+    return jsonify({"ok": True, "calibration": calibration})
+
+
 @app.post("/api/calibration/reset-chords")
 def api_reset_chords() -> Any:
     calibration = reset_chords()
@@ -321,6 +372,9 @@ def api_delete_chord() -> Any:
 
 @app.post("/api/detection/start")
 def api_start_detection() -> Any:
+    data = request.get_json(silent=True) or {}
+    string_filter = _validate_string_filter(data.get("string_filter"))
+    detection_mode = _validate_detection_mode(data.get("detection_mode"))
     calibration = load_calibration()
     if not calibration["single_notes"] and not calibration["chords"]:
         message = "Add at least one single-note or chord calibration before starting detection."
@@ -329,9 +383,17 @@ def api_start_detection() -> Any:
 
     def on_audio(payload: dict[str, Any]) -> None:
         calibration_snapshot = load_calibration()
-        single_result = _build_single_note_result(payload, calibration_snapshot["single_notes"])
+        single_result = _build_single_note_result(
+            payload,
+            calibration_snapshot["single_notes"],
+            string_filter=string_filter,
+        )
         chord_result = _build_chord_result(payload, calibration_snapshot["chords"])
-        combined_result = _build_combined_detection_result(single_result, chord_result)
+        combined_result = _build_combined_detection_result(
+            single_result,
+            chord_result,
+            detection_mode=detection_mode,
+        )
 
         _emit_pitch_update(payload)
         socketio.emit("single_note_result", single_result)
@@ -442,6 +504,23 @@ def _validate_chord_calibration_request(data: dict[str, Any]) -> tuple[str, list
     return chord_name, expected_notes
 
 
+def _validate_string_filter(value: Any) -> str | None:
+    string_filter = str(value or "").strip()
+    if not string_filter or string_filter == "Any string":
+        return None
+    valid_strings = {item["label"] for item in GUITAR_STRINGS}
+    return string_filter if string_filter in valid_strings else None
+
+
+def _validate_detection_mode(value: Any) -> str:
+    mode = str(value or "auto").strip().lower().replace(" ", "_")
+    if mode in {"single", "single_note", "single-note"}:
+        return "single"
+    if mode == "chord":
+        return "chord"
+    return "auto"
+
+
 def _parse_expected_notes(value: str) -> list[str]:
     return [
         item.strip().upper().replace("B#", "C").replace("E#", "F")
@@ -453,16 +532,24 @@ def _parse_expected_notes(value: str) -> list[str]:
 def _build_single_note_result(
     payload: dict[str, Any],
     entries: list[dict[str, Any]],
+    *,
+    string_filter: str | None = None,
 ) -> dict[str, Any]:
     pitch_payload = payload.get("single_note", payload)
     frequency_hz = pitch_payload.get("smoothed_frequency_hz") or pitch_payload.get("frequency_hz")
+    filtered_entries = [
+        entry for entry in entries if string_filter is None or entry.get("string") == string_filter
+    ]
 
-    if not entries:
+    if not filtered_entries:
+        filter_text = f" for {string_filter}" if string_filter else ""
         return {
             "status": "no_calibration",
-            "message": "No single-note calibration saved yet.",
+            "message": f"No single-note calibration saved{filter_text} yet.",
             "detected_frequency_hz": round(float(frequency_hz), 2) if frequency_hz else None,
             "frequency": round(float(frequency_hz), 2) if frequency_hz else None,
+            "corrected_fundamental_hz": None,
+            "harmonic_ratio_used": None,
             "string": None,
             "note": None,
             "octave": None,
@@ -472,6 +559,10 @@ def _build_single_note_result(
             "cents_error": None,
             "frequency_note": note_from_frequency(frequency_hz),
             "validation_warning": None,
+            "alternate_positions": [],
+            "ambiguous_match": False,
+            "top_matches": [],
+            "string_filter": string_filter,
         }
 
     if not pitch_payload.get("stable") or not frequency_hz:
@@ -480,6 +571,8 @@ def _build_single_note_result(
             "message": "No clear single note detected",
             "detected_frequency_hz": None,
             "frequency": None,
+            "corrected_fundamental_hz": None,
+            "harmonic_ratio_used": None,
             "string": None,
             "note": None,
             "octave": None,
@@ -489,24 +582,90 @@ def _build_single_note_result(
             "cents_error": None,
             "frequency_note": note_from_frequency(frequency_hz),
             "validation_warning": None,
+            "alternate_positions": [],
+            "ambiguous_match": False,
+            "top_matches": [],
+            "string_filter": string_filter,
         }
 
     detected_hz = float(frequency_hz)
-    closest = min(
-        entries,
-        key=lambda entry: abs(cents_between(detected_hz, float(entry["frequency_hz"]))),
+    detected_fingerprint = payload.get("chord", {}).get("fingerprint", {})
+    match = _select_single_note_match(
+        detected_hz,
+        filtered_entries,
+        detected_fingerprint=detected_fingerprint,
     )
-    cents_error = cents_between(detected_hz, float(closest["frequency_hz"]))
-    confidence = _confidence_from_cents(abs(cents_error))
+    if match is None:
+        return {
+            "status": "no_calibration",
+            "message": "No usable single-note calibration rows were found.",
+            "detected_frequency_hz": round(detected_hz, 2),
+            "frequency": round(detected_hz, 2),
+            "corrected_fundamental_hz": None,
+            "harmonic_ratio_used": None,
+            "string": None,
+            "note": None,
+            "octave": None,
+            "full_note": "--",
+            "fret": None,
+            "confidence": 0,
+            "cents_error": None,
+            "frequency_note": note_from_frequency(detected_hz),
+            "validation_warning": None,
+            "alternate_positions": [],
+            "ambiguous_match": False,
+            "top_matches": [],
+            "string_filter": string_filter,
+        }
+
+    selected = match["selected"]
+    closest = selected["entry"]
+    top_matches = [_public_single_match(candidate) for candidate in match["top_matches"]]
+    alternate_positions = [_public_alternate_position(candidate) for candidate in match["alternates"]]
+    cents_error = float(selected["cents_error"])
+    confidence = int(round(float(selected["score"]) * 100))
     note_info = get_note_from_string_and_fret(closest["string"], closest["fret"])
-    frequency_note = note_from_frequency(detected_hz)
-    validation = _validate_note_frequency(note_info, frequency_note, detected_hz)
+    corrected_hz = float(selected["corrected_fundamental_hz"])
+    frequency_note = note_from_frequency(corrected_hz)
+    validation = _validate_note_frequency(note_info, frequency_note, corrected_hz)
     if validation["mismatch"]:
         confidence = max(0, confidence - validation["confidence_penalty"])
     status = "ok" if confidence >= 60 else "uncertain"
     message = "Matched calibrated note" if status == "ok" else "Uncertain - play one clean note"
+    if string_filter:
+        message = f"{message} on {string_filter}"
+    if selected["harmonic_ratio_used"] != 1:
+        message = (
+            f"{message}. Harmonic correction used: {detected_hz:.2f} Hz -> "
+            f"{corrected_hz:.2f} Hz"
+        )
+    if alternate_positions:
+        message = (
+            f"{message}. Same pitch also matches "
+            f"{_format_alternate_positions(alternate_positions)}."
+        )
+    if selected.get("ambiguous"):
+        message = (
+            f"{message} Ambiguous match: select a string filter or recalibrate with "
+            "spectral fingerprints for best physical-string accuracy."
+        )
     if validation["warning"]:
         message = f"{message}. {validation['warning']}"
+    logger.info(
+        "single_match raw=%.2f corrected=%.2f harmonic=%s top3=%s",
+        detected_hz,
+        corrected_hz,
+        selected["harmonic_ratio_used"],
+        [
+            {
+                "string": item["string"],
+                "fret": item["fret"],
+                "score": item["score"],
+                "cents": item["cents_error"],
+            }
+            for item in top_matches
+        ],
+    )
 
     return {
         "status": status,
@@ -514,17 +673,370 @@ def _build_single_note_result(
         "message": message,
         "detected_frequency_hz": round(detected_hz, 2),
         "frequency": round(detected_hz, 2),
+        "corrected_fundamental_hz": round(corrected_hz, 2),
+        "harmonic_ratio_used": selected["harmonic_ratio_used"],
         "string": closest["string"],
         "note": note_info["note"],
         "octave": note_info["octave"],
         "full_note": note_info["full_note"],
         "fret": closest["fret"],
-        "calibrated_frequency_hz": closest["frequency_hz"],
+        "calibrated_frequency_hz": selected["reference_frequency_hz"],
+        "calibrated_detected_frequency_hz": closest["frequency_hz"],
         "confidence": confidence,
         "cents_error": round(cents_error, 2) if math.isfinite(cents_error) else None,
         "frequency_note": frequency_note,
         "validation_warning": validation["warning"],
+        "alternate_positions": alternate_positions,
+        "ambiguous_match": bool(alternate_positions) or bool(selected.get("ambiguous")),
+        "top_matches": top_matches,
+        "score_components": selected["score_components"],
+        "string_filter": string_filter,
     }
+
+
+def _select_single_note_match(
+    detected_hz: float,
+    entries: list[dict[str, Any]],
+    *,
+    detected_fingerprint: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Choose the best string/fret using pitch correction plus spectral features."""
+    candidates = [
+        candidate
+        for candidate in (
+            _build_single_note_candidate(detected_hz, entry, detected_fingerprint)
+            for entry in entries
+        )
+        if candidate is not None
+    ]
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda candidate: (-candidate["score"], _stable_position_sort_key(candidate)))
+    best = candidates[0]
+    top_matches = candidates[:3]
+    tied_positions = _find_ambiguous_single_matches(best, candidates)
+
+    selected = min(tied_positions, key=_stable_position_sort_key) if tied_positions else best
+    selected["ambiguous"] = len(tied_positions) > 1
+    alternates = [
+        candidate
+        for candidate in sorted(tied_positions, key=_stable_position_sort_key)
+        if candidate is not selected
+    ]
+
+    return {
+        "selected": selected,
+        "alternates": alternates,
+        "top_matches": top_matches,
+    }
+
+
+def _build_single_note_candidate(
+    detected_hz: float,
+    entry: dict[str, Any],
+    detected_fingerprint: dict[str, Any],
+) -> dict[str, Any] | None:
+    try:
+        fret = int(entry["fret"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+    reference_hz = _single_note_reference_frequency(entry)
+    if reference_hz <= 0 or not math.isfinite(reference_hz):
+        return None
+
+    corrected_hz, harmonic_ratio = _best_corrected_frequency(detected_hz, reference_hz)
+    cents_error = cents_between(corrected_hz, reference_hz)
+    if not math.isfinite(cents_error):
+        return None
+
+    note_info = get_note_from_string_and_fret(entry.get("string", ""), fret)
+    stored_fingerprint = entry.get("fingerprint", {})
+    score_components = _single_note_score_components(
+        abs(cents_error),
+        detected_fingerprint,
+        stored_fingerprint if isinstance(stored_fingerprint, dict) else {},
+    )
+    score = (
+        score_components["frequency"] * 0.45
+        + score_components["harmonics"] * 0.20
+        + score_components["chroma"] * 0.15
+        + score_components["centroid"] * 0.10
+        + score_components["dynamics"] * 0.10
+    ) * _harmonic_ratio_weight(harmonic_ratio)
+    return {
+        "entry": entry,
+        "note_info": note_info,
+        "detected_frequency_hz": round(detected_hz, 2),
+        "reference_frequency_hz": round(reference_hz, 2),
+        "corrected_fundamental_hz": round(corrected_hz, 2),
+        "harmonic_ratio_used": harmonic_ratio,
+        "cents_error": cents_error,
+        "abs_cents": abs(cents_error),
+        "score_components": {key: round(value, 3) for key, value in score_components.items()},
+        "score": max(0.0, min(1.0, float(score))),
+        "ambiguous": False,
+    }
+
+
+def _stable_position_sort_key(candidate: dict[str, Any]) -> tuple[int, int, float]:
+    entry = candidate["entry"]
+    try:
+        fret = int(entry.get("fret", 99))
+    except (TypeError, ValueError):
+        fret = 99
+    string_rank = STRING_ORDER.get(str(entry.get("string", "")), 99)
+    return fret, string_rank, float(candidate.get("abs_cents", 0.0))
+
+
+def _public_alternate_position(candidate: dict[str, Any]) -> dict[str, Any]:
+    entry = candidate["entry"]
+    note_info = candidate["note_info"]
+    return {
+        "string": entry.get("string"),
+        "fret": entry.get("fret"),
+        "note": note_info.get("note"),
+        "octave": note_info.get("octave"),
+        "full_note": note_info.get("full_note"),
+        "calibrated_frequency_hz": candidate.get("reference_frequency_hz"),
+        "corrected_fundamental_hz": candidate.get("corrected_fundamental_hz"),
+        "harmonic_ratio_used": candidate.get("harmonic_ratio_used"),
+        "score": round(float(candidate.get("score", 0.0)) * 100, 1),
+        "cents_error": round(float(candidate["cents_error"]), 2),
+    }
+
+
+def _public_single_match(candidate: dict[str, Any]) -> dict[str, Any]:
+    entry = candidate["entry"]
+    note_info = candidate["note_info"]
+    return {
+        "string": entry.get("string"),
+        "fret": entry.get("fret"),
+        "note": note_info.get("note"),
+        "full_note": note_info.get("full_note"),
+        "score": round(float(candidate.get("score", 0.0)) * 100, 1),
+        "confidence": int(round(float(candidate.get("score", 0.0)) * 100)),
+        "detected_frequency_hz": candidate.get("detected_frequency_hz"),
+        "corrected_fundamental_hz": candidate.get("corrected_fundamental_hz"),
+        "reference_frequency_hz": candidate.get("reference_frequency_hz"),
+        "harmonic_ratio_used": candidate.get("harmonic_ratio_used"),
+        "cents_error": round(float(candidate["cents_error"]), 2),
+        "score_components": candidate.get("score_components", {}),
+    }
+
+
+def _format_alternate_positions(alternate_positions: list[dict[str, Any]]) -> str:
+    shown = alternate_positions[:3]
+    formatted = [
+        f"{position.get('string')} fret {position.get('fret')}"
+        for position in shown
+        if position.get("string") is not None and position.get("fret") is not None
+    ]
+    if len(alternate_positions) > len(shown):
+        formatted.append(f"{len(alternate_positions) - len(shown)} more")
+    return ", ".join(formatted) if formatted else "another calibrated position"
+
+
+def _find_ambiguous_single_matches(
+    best: dict[str, Any],
+    candidates: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    best_score = float(best.get("score", 0.0))
+    ambiguous = [
+        candidate
+        for candidate in candidates
+        if best_score - float(candidate.get("score", 0.0)) <= 0.025
+    ]
+    return ambiguous or [best]
+
+
+def _single_note_reference_frequency(entry: dict[str, Any]) -> float:
+    fingerprint = entry.get("fingerprint", {})
+    if isinstance(fingerprint, dict):
+        try:
+            frequency = float(fingerprint.get("fundamental_frequency_hz", 0.0))
+        except (TypeError, ValueError):
+            frequency = 0.0
+        if frequency > 0 and math.isfinite(frequency):
+            return frequency
+
+    note_info = get_note_from_string_and_fret(entry.get("string", ""), entry.get("fret"))
+    expected = frequency_from_note_info(note_info)
+    if expected:
+        return float(expected)
+
+    return float(entry.get("average_frequency_hz", entry.get("frequency_hz", 0.0)) or 0.0)
+
+
+def _best_corrected_frequency(detected_hz: float, reference_hz: float) -> tuple[float, float]:
+    candidates = [
+        (detected_hz, 1),
+        (detected_hz / 2.0, 2),
+        (detected_hz / 3.0, 3),
+        (detected_hz / 4.0, 4),
+        (detected_hz * 2.0, 0.5),
+    ]
+    return min(candidates, key=lambda item: abs(cents_between(item[0], reference_hz)))
+
+
+def _single_note_score_components(
+    abs_cents: float,
+    detected_fingerprint: dict[str, Any],
+    stored_fingerprint: dict[str, Any],
+) -> dict[str, float]:
+    return {
+        "frequency": _frequency_score(abs_cents),
+        "harmonics": _harmonic_peak_similarity(detected_fingerprint, stored_fingerprint),
+        "chroma": _chroma_similarity_or_neutral(detected_fingerprint, stored_fingerprint),
+        "centroid": _centroid_similarity(detected_fingerprint, stored_fingerprint),
+        "dynamics": _dynamics_similarity(detected_fingerprint, stored_fingerprint),
+    }
+
+
+def _frequency_score(abs_cents: float) -> float:
+    if abs_cents <= 5:
+        return 1.0
+    if abs_cents <= 10:
+        return 1.0 - ((abs_cents - 5) / 5) * 0.1
+    if abs_cents <= 25:
+        return 0.9 - ((abs_cents - 10) / 15) * 0.3
+    if abs_cents <= 50:
+        return 0.6 - ((abs_cents - 25) / 25) * 0.4
+    return max(0.0, 0.2 - ((abs_cents - 50) / 50) * 0.2)
+
+
+def _harmonic_ratio_weight(ratio: float) -> float:
+    if ratio == 0.5:
+        return 0.7
+    if ratio in {3, 4}:
+        return 0.94
+    return 1.0
+
+
+def _harmonic_peak_similarity(
+    detected_fingerprint: dict[str, Any],
+    stored_fingerprint: dict[str, Any],
+) -> float:
+    detected_peaks = _fingerprint_peaks(detected_fingerprint)
+    stored_peaks = _fingerprint_peaks(stored_fingerprint)
+    if not detected_peaks or not stored_peaks:
+        return 0.55
+
+    matches = 0
+    for stored_peak in stored_peaks[:8]:
+        if any(abs(cents_between(detected_peak, stored_peak)) <= 35 for detected_peak in detected_peaks[:10]):
+            matches += 1
+    return max(0.0, min(1.0, matches / max(min(len(stored_peaks), 8), 1)))
+
+
+def _fingerprint_peaks(fingerprint: dict[str, Any]) -> list[float]:
+    values = fingerprint.get("harmonic_peaks_hz", fingerprint.get("dominant_frequencies", []))
+    if not isinstance(values, list):
+        return []
+
+    peaks: list[float] = []
+    for value in values:
+        try:
+            frequency = float(value)
+        except (TypeError, ValueError):
+            continue
+        if frequency > 0 and math.isfinite(frequency):
+            peaks.append(frequency)
+    return peaks
+
+
+def _chroma_similarity_or_neutral(
+    detected_fingerprint: dict[str, Any],
+    stored_fingerprint: dict[str, Any],
+) -> float:
+    detected = detected_fingerprint.get("chroma_vector", [])
+    stored = stored_fingerprint.get("chroma_vector", [])
+    if not _has_vector_energy(detected) or not _has_vector_energy(stored):
+        return 0.55
+    return compare_chroma_vectors(detected, stored)
+
+
+def _has_vector_energy(values: Any) -> bool:
+    if not isinstance(values, list):
+        return False
+    try:
+        return sum(abs(float(value)) for value in values) > 1e-9
+    except (TypeError, ValueError):
+        return False
+
+
+def _centroid_similarity(
+    detected_fingerprint: dict[str, Any],
+    stored_fingerprint: dict[str, Any],
+) -> float:
+    detected = _fingerprint_float(
+        detected_fingerprint,
+        "spectral_centroid",
+        fallback_key="spectral_centroid_avg",
+    )
+    stored = _fingerprint_float(
+        stored_fingerprint,
+        "spectral_centroid",
+        fallback_key="spectral_centroid_avg",
+    )
+    return _ratio_similarity_or_neutral(detected, stored)
+
+
+def _dynamics_similarity(
+    detected_fingerprint: dict[str, Any],
+    stored_fingerprint: dict[str, Any],
+) -> float:
+    rms_score = _ratio_similarity_or_neutral(
+        _fingerprint_float(detected_fingerprint, "rms_energy", fallback_key="rms"),
+        _fingerprint_float(stored_fingerprint, "rms_energy", fallback_key="rms"),
+    )
+    attack_score = _ratio_similarity_or_neutral(
+        _fingerprint_float(detected_fingerprint, "attack_time_ms"),
+        _fingerprint_float(stored_fingerprint, "attack_time_ms"),
+    )
+    decay_score = _decay_similarity(
+        detected_fingerprint.get("decay_profile", []),
+        stored_fingerprint.get("decay_profile", []),
+    )
+    return (rms_score + attack_score + decay_score) / 3.0
+
+
+def _decay_similarity(detected: Any, stored: Any) -> float:
+    if not isinstance(detected, list) or not isinstance(stored, list) or not detected or not stored:
+        return 0.55
+    length = min(len(detected), len(stored))
+    try:
+        differences = [
+            abs(float(detected[index]) - float(stored[index]))
+            for index in range(length)
+        ]
+    except (TypeError, ValueError):
+        return 0.55
+    return max(0.0, min(1.0, 1.0 - (sum(differences) / length)))
+
+
+def _fingerprint_float(
+    fingerprint: dict[str, Any],
+    key: str,
+    *,
+    fallback_key: str | None = None,
+) -> float:
+    value = fingerprint.get(key)
+    if value in {None, ""} and fallback_key:
+        value = fingerprint.get(fallback_key)
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return numeric if math.isfinite(numeric) else 0.0
+
+
+def _ratio_similarity_or_neutral(value: float, reference: float) -> float:
+    if value <= 0 or reference <= 0:
+        return 0.55
+    ratio = abs(math.log2(value / reference))
+    return max(0.0, min(1.0, 1.0 - ratio))
 
 
 def _build_chord_result(
@@ -543,6 +1055,9 @@ def _build_chord_result(
             "chord_name": None,
             "closest_chord_name": None,
             "detected_pitch_classes": detected_pitch_classes,
+            "missing_expected_notes": [],
+            "extra_detected_notes": [],
+            "top_matches": [],
             "confidence": 0,
         }
 
@@ -553,6 +1068,9 @@ def _build_chord_result(
             "chord_name": None,
             "closest_chord_name": None,
             "detected_pitch_classes": detected_pitch_classes,
+            "missing_expected_notes": [],
+            "extra_detected_notes": [],
+            "top_matches": [],
             "confidence": 0,
         }
 
@@ -560,7 +1078,20 @@ def _build_chord_result(
     for chord in chords:
         stored_chroma = chord.get("fingerprint", {}).get("chroma_vector", [0.0] * 12)
         similarity = compare_chroma_vectors(detected_chroma, stored_chroma)
-        matches.append((similarity, chord))
+        expected = _pitch_class_set(chord.get("expected_notes", []))
+        detected = _pitch_class_set(detected_pitch_classes)
+        overlap = len(expected & detected) / max(len(expected), 1) if expected else 0.0
+        score = (similarity * 0.75) + (overlap * 0.25)
+        matches.append(
+            {
+                "score": score,
+                "similarity": similarity,
+                "overlap": overlap,
+                "chord": chord,
+                "missing_expected_notes": sorted(expected - detected),
+                "extra_detected_notes": sorted(detected - expected),
+            }
+        )
 
     if not matches:
         return {
@@ -569,11 +1100,16 @@ def _build_chord_result(
             "chord_name": None,
             "closest_chord_name": None,
             "detected_pitch_classes": detected_pitch_classes,
+            "missing_expected_notes": [],
+            "extra_detected_notes": [],
+            "top_matches": [],
             "confidence": 0,
         }
 
-    similarity, closest = max(matches, key=lambda item: item[0])
-    confidence = int(round(similarity * 100))
+    matches.sort(key=lambda item: item["score"], reverse=True)
+    best_match = matches[0]
+    closest = best_match["chord"]
+    confidence = int(round(float(best_match["score"]) * 100))
     if confidence >= 85:
         status = "confident"
         message = "Confident chord match"
@@ -592,15 +1128,60 @@ def _build_chord_result(
         "closest_chord_name": closest["chord_name"],
         "expected_notes": closest.get("expected_notes", []),
         "detected_pitch_classes": detected_pitch_classes,
+        "missing_expected_notes": best_match["missing_expected_notes"],
+        "extra_detected_notes": best_match["extra_detected_notes"],
+        "top_matches": [_public_chord_match(match) for match in matches[:3]],
         "confidence": confidence,
         "confidence_baseline": closest.get("fingerprint", {}).get("confidence_baseline", 0),
         "fingerprint": fingerprint,
     }
 
 
+def _public_chord_match(match: dict[str, Any]) -> dict[str, Any]:
+    chord = match["chord"]
+    return {
+        "chord_name": chord.get("chord_name"),
+        "confidence": int(round(float(match.get("score", 0.0)) * 100)),
+        "chroma_similarity": round(float(match.get("similarity", 0.0)) * 100, 1),
+        "note_overlap": round(float(match.get("overlap", 0.0)) * 100, 1),
+        "missing_expected_notes": match.get("missing_expected_notes", []),
+        "extra_detected_notes": match.get("extra_detected_notes", []),
+    }
+
+
+def _pitch_class_set(values: Any) -> set[str]:
+    if not isinstance(values, list):
+        return set()
+    return {_normalize_pitch_class(value) for value in values if _normalize_pitch_class(value)}
+
+
+def _normalize_pitch_class(value: Any) -> str:
+    note = str(value or "").strip().upper()
+    if not note:
+        return ""
+    if note.startswith("B#"):
+        return "C"
+    if note.startswith("E#"):
+        return "F"
+    if len(note) >= 2 and note[1] == "#":
+        return note[:2]
+    if len(note) >= 2 and note[1] == "B":
+        flats = {
+            "DB": "C#",
+            "EB": "D#",
+            "GB": "F#",
+            "AB": "G#",
+            "BB": "A#",
+        }
+        return flats.get(note[:2], note[:1])
+    return note[:1]
+
+
 def _build_combined_detection_result(
     single_result: dict[str, Any],
     chord_result: dict[str, Any],
+    *,
+    detection_mode: str = "auto",
 ) -> dict[str, Any]:
     single_confidence = int(single_result.get("confidence") or 0)
     chord_confidence = int(chord_result.get("confidence") or 0)
@@ -616,7 +1197,27 @@ def _build_combined_detection_result(
     )
     choose_single = single_status == "ok" and single_confidence >= 60
 
-    if choose_chord:
+    if detection_mode == "single" and choose_single:
+        selected_type = "Single Note"
+        status = single_status
+        message = single_result.get("message", "Single note detected")
+        primary = single_result
+    elif detection_mode == "single":
+        selected_type = "Unknown"
+        status = "unknown"
+        message = single_result.get("message", "Uncertain - play one clean note")
+        primary = {}
+    elif detection_mode == "chord" and chord_status in {"confident", "possible", "uncertain"}:
+        selected_type = "Chord" if chord_status in {"confident", "possible"} else "Unknown"
+        status = chord_status if selected_type == "Chord" else "unknown"
+        message = chord_result.get("message", "Chord detection active")
+        primary = chord_result if selected_type == "Chord" else {}
+    elif detection_mode == "chord":
+        selected_type = "Unknown"
+        status = "unknown"
+        message = chord_result.get("message", "Uncertain - strum one clear chord")
+        primary = {}
+    elif choose_chord:
         selected_type = "Chord"
         status = chord_status
         message = chord_result.get("message", "Chord detected")
@@ -644,6 +1245,7 @@ def _build_combined_detection_result(
         "primary": primary,
         "single_note": single_result,
         "chord": chord_result,
+        "detection_mode": detection_mode,
     }
 
     if selected_type == "Single Note":
@@ -659,6 +1261,8 @@ def _build_combined_detection_result(
                 "octave": single_result.get("octave"),
                 "full_note": single_result.get("full_note"),
                 "validation_warning": single_result.get("validation_warning"),
+                "alternate_positions": single_result.get("alternate_positions", []),
+                "ambiguous_match": single_result.get("ambiguous_match", False),
             }
         )
     else:
@@ -674,6 +1278,8 @@ def _build_combined_detection_result(
                 "octave": None,
                 "full_note": "--",
                 "validation_warning": None,
+                "alternate_positions": [],
+                "ambiguous_match": False,
             }
         )
 
@@ -708,6 +1314,16 @@ def _validate_note_frequency(
             "mismatch": True,
             "warning": "Possible mismatch detected",
             "confidence_penalty": 30 if expected_cents > 65 else 18,
+        }
+
+    if expected_cents > 90:
+        return {
+            "mismatch": False,
+            "warning": (
+                "This calibrated row is far from the standard fret pitch; "
+                "recalibrate it if the detector grabbed a harmonic."
+            ),
+            "confidence_penalty": 0,
         }
 
     return {"mismatch": False, "warning": None, "confidence_penalty": 0}

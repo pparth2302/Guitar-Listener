@@ -62,7 +62,7 @@
                 Start Single Calibration
               </button>
               <button id="resetSingleCalibration" class="ghost-button danger" type="button">
-                Reset Single Notes
+                Delete All Single Notes
               </button>
             </form>
           </article>
@@ -135,11 +135,12 @@
                   <th>Frequency</th>
                   <th>Std Dev</th>
                   <th>Saved</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody id="singleCalibrationRows">
                 <tr>
-                  <td colspan="6">No single-note calibration data saved yet.</td>
+                  <td colspan="7">No single-note calibration data saved yet.</td>
                 </tr>
               </tbody>
             </table>
@@ -219,12 +220,33 @@
             <p class="eyebrow">Live mode</p>
             <h2>Listen Continuously</h2>
             <p class="hint">
-              The app compares a stable single pitch against saved fret rows and
-              compares chord chroma against saved chord fingerprints.
+              The app corrects likely harmonics, compares spectral fingerprints,
+              and can filter matches to one guitar string.
             </p>
             <p class="hint">
               Tune first, use a quiet room, keep the same mic position, strum chords
               cleanly, let strings ring, and mute other strings for single-note tests.
+            </p>
+            <div class="detection-controls">
+              <label>
+                Detection mode
+                <select id="detectionModeSelect">
+                  <option value="auto">Auto: Single Note or Chord</option>
+                  <option value="single">Single Note Detection</option>
+                  <option value="chord">Chord Detection</option>
+                </select>
+              </label>
+
+              <label>
+                String filter
+                <select id="stringFilterSelect">
+                  <option value="">Any string</option>
+                </select>
+              </label>
+            </div>
+            <p class="hint beginner-note">
+              Some string/fret positions can produce the same note. For best accuracy,
+              select the string you are practicing or recalibrate in a quiet room.
             </p>
             <div class="button-row">
               <button id="startDetection" class="primary-button" type="button">Start Detection</button>
@@ -243,6 +265,14 @@
                 <dd id="singleFrequency">-- Hz</dd>
               </div>
               <div>
+                <dt>Corrected</dt>
+                <dd id="singleCorrected">-- Hz</dd>
+              </div>
+              <div>
+                <dt>Harmonic</dt>
+                <dd id="singleHarmonic">--</dd>
+              </div>
+              <div>
                 <dt>Confidence</dt>
                 <dd id="singleConfidence">0%</dd>
               </div>
@@ -255,6 +285,15 @@
                 <dd id="singleStatus">No single note yet</dd>
               </div>
             </dl>
+            <div class="confidence-bar" aria-hidden="true">
+              <span id="singleConfidenceBar"></span>
+            </div>
+            <div>
+              <p class="mini-heading">Top matches</p>
+              <ol id="singleTopMatches" class="match-list">
+                <li>--</li>
+              </ol>
+            </div>
           </article>
 
           <article id="chordGuessCard" class="card guess-card" data-active="false">
@@ -274,10 +313,27 @@
                 <dd id="closestChord">--</dd>
               </div>
               <div>
+                <dt>Missing</dt>
+                <dd id="chordMissingNotes">--</dd>
+              </div>
+              <div>
+                <dt>Extra</dt>
+                <dd id="chordExtraNotes">--</dd>
+              </div>
+              <div>
                 <dt>Status</dt>
                 <dd id="chordStatus">No chord yet</dd>
               </div>
             </dl>
+            <div class="confidence-bar" aria-hidden="true">
+              <span id="chordConfidenceBar"></span>
+            </div>
+            <div>
+              <p class="mini-heading">Top chord matches</p>
+              <ol id="chordTopMatches" class="match-list">
+                <li>--</li>
+              </ol>
+            </div>
           </article>
         </div>
       </section>

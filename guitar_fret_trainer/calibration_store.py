@@ -8,11 +8,21 @@ single-note calibrations never get mixed.
 from __future__ import annotations
 
 import json
+import math
 import time
 from pathlib import Path
 from typing import Any
 
+from music_theory import frequency_from_note_info, get_note_from_string_and_fret
+
 DATA_FILE = Path(__file__).with_name("calibration_data.json")
+DATA_VERSION = 2
+DEFAULT_SETTINGS = {
+    "sample_rate": 44100,
+    "buffer_size": 2048,
+    "hop_size": 512,
+    "rms_threshold": 0.01,
+}
 
 STRING_ORDER = {
     "Low E": 0,
@@ -28,7 +38,7 @@ def ensure_store(path: Path = DATA_FILE) -> None:
     """Create the calibration JSON file when it does not exist."""
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
-        _write_data({"single_notes": [], "chords": []}, path)
+        _write_data(_empty_store(), path)
 
 
 def load_calibration(path: Path = DATA_FILE) -> dict[str, list[dict[str, Any]]]:
@@ -39,7 +49,7 @@ def load_calibration(path: Path = DATA_FILE) -> dict[str, list[dict[str, Any]]]:
     except json.JSONDecodeError:
         backup = path.with_name(f"{path.stem}.invalid-{int(time.time())}{path.suffix}")
         path.replace(backup)
-        migrated = {"single_notes": [], "chords": []}
+        migrated = _empty_store()
         _write_data(migrated, path)
         return migrated
 
@@ -117,6 +127,27 @@ def delete_chord_entry(
     return data
 
 
+def delete_single_note_entry(
+    string_label: str,
+    note: str,
+    fret: int,
+    path: Path = DATA_FILE,
+) -> dict[str, list[dict[str, Any]]]:
+    """Delete one single string/fret calibration row."""
+    data = load_calibration(path)
+    data["single_notes"] = [
+        entry
+        for entry in data["single_notes"]
+        if not (
+            entry["string"] == string_label
+            and entry["note"] == note
+            and int(entry["fret"]) == int(fret)
+        )
+    ]
+    _write_data(data, path)
+    return data
+
+
 def reset_single_notes(path: Path = DATA_FILE) -> dict[str, list[dict[str, Any]]]:
     data = load_calibration(path)
     data["single_notes"] = []
@@ -132,7 +163,7 @@ def reset_chords(path: Path = DATA_FILE) -> dict[str, list[dict[str, Any]]]:
 
 
 def reset_all(path: Path = DATA_FILE) -> dict[str, list[dict[str, Any]]]:
-    data = {"single_notes": [], "chords": []}
+    data = _empty_store()
     _write_data(data, path)
     return data
 
@@ -149,19 +180,33 @@ def reset_calibration(path: Path = DATA_FILE) -> list[dict[str, Any]]:
     return reset_single_notes(path)["single_notes"]
 
 
-def _migrate_data(raw_data: Any) -> tuple[dict[str, list[dict[str, Any]]], bool]:
+def _empty_store() -> dict[str, Any]:
+    return {
+        "version": DATA_VERSION,
+        "single_notes": [],
+        "chords": [],
+        "settings": dict(DEFAULT_SETTINGS),
+    }
+
+
+def _migrate_data(raw_data: Any) -> tuple[dict[str, Any], bool]:
     changed = False
 
     if isinstance(raw_data, list):
         single_notes = raw_data
         chords: list[Any] = []
+        settings = dict(DEFAULT_SETTINGS)
         changed = True
     elif isinstance(raw_data, dict):
         single_notes = raw_data.get("single_notes", raw_data.get("entries", []))
         chords = raw_data.get("chords", [])
+        settings = _normalize_settings(raw_data.get("settings", {}))
+        if raw_data.get("version") != DATA_VERSION:
+            changed = True
     else:
         single_notes = []
         chords = []
+        settings = dict(DEFAULT_SETTINGS)
         changed = True
 
     if not isinstance(single_notes, list):
@@ -183,8 +228,10 @@ def _migrate_data(raw_data: Any) -> tuple[dict[str, list[dict[str, Any]]], bool]
     ]
 
     data = {
+        "version": DATA_VERSION,
         "single_notes": _sort_single_notes(normalized_single),
         "chords": _sort_chords(normalized_chords),
+        "settings": settings,
     }
 
     if not changed:
@@ -192,33 +239,246 @@ def _migrate_data(raw_data: Any) -> tuple[dict[str, list[dict[str, Any]]], bool]
     return data, changed
 
 
+def _normalize_settings(settings: Any) -> dict[str, Any]:
+    normalized = dict(DEFAULT_SETTINGS)
+    if not isinstance(settings, dict):
+        return normalized
+
+    for key, default in DEFAULT_SETTINGS.items():
+        value = settings.get(key, default)
+        try:
+            numeric = type(default)(value)
+        except (TypeError, ValueError):
+            numeric = default
+        if isinstance(numeric, (int, float)) and numeric <= 0:
+            numeric = default
+        normalized[key] = numeric
+    return normalized
+
+
 def _normalize_single_note(entry: dict[str, Any]) -> dict[str, Any] | None:
     try:
         string_label = str(entry["string"])
         note = str(entry["note"])
         fret = int(entry["fret"])
-        frequency_hz = round(float(entry["frequency_hz"]), 2)
         timestamp = str(entry.get("timestamp", ""))
     except (KeyError, TypeError, ValueError):
         return None
 
+    frequency_hz = _read_float(
+        entry.get("frequency_hz", entry.get("average_frequency_hz")),
+        default=0.0,
+        digits=2,
+    )
     if frequency_hz <= 0:
         return None
 
-    std_dev = entry.get("std_dev")
-    try:
-        std_dev_value = round(float(std_dev), 3) if std_dev is not None else None
-    except (TypeError, ValueError):
-        std_dev_value = None
+    average_frequency_hz = _read_float(entry.get("average_frequency_hz"), default=frequency_hz, digits=2)
+    median_frequency_hz = _read_float(entry.get("median_frequency_hz"), default=frequency_hz, digits=2)
+    std_dev_value = _read_optional_float(entry.get("std_dev"), digits=3)
+    rms_avg = _read_optional_float(entry.get("rms_avg"), digits=5)
+    pitch_confidence_avg = _read_optional_float(entry.get("pitch_confidence_avg"), digits=3)
+    sample_count = _read_int(entry.get("sample_count"), default=0)
+
+    fundamental_hz, harmonic_ratio = _derive_fundamental_frequency(
+        entry,
+        detected_frequency_hz=frequency_hz,
+        string_label=string_label,
+        fret=fret,
+    )
+    fingerprint = _normalize_single_fingerprint(
+        entry.get("fingerprint"),
+        detected_frequency_hz=frequency_hz,
+        fundamental_frequency_hz=fundamental_hz,
+        harmonic_ratio=harmonic_ratio,
+        string_label=string_label,
+        fret=fret,
+    )
+    quality = _normalize_quality(entry.get("quality"), harmonic_ratio=harmonic_ratio)
 
     return {
         "string": string_label,
         "note": note,
         "fret": fret,
         "frequency_hz": frequency_hz,
+        "average_frequency_hz": average_frequency_hz,
+        "median_frequency_hz": median_frequency_hz,
         "std_dev": std_dev_value,
+        "rms_avg": rms_avg,
+        "pitch_confidence_avg": pitch_confidence_avg,
+        "sample_count": sample_count,
+        "fingerprint": fingerprint,
+        "quality": quality,
         "timestamp": timestamp,
     }
+
+
+def _derive_fundamental_frequency(
+    entry: dict[str, Any],
+    *,
+    detected_frequency_hz: float,
+    string_label: str,
+    fret: int,
+) -> tuple[float, int]:
+    fingerprint = entry.get("fingerprint")
+    if isinstance(fingerprint, dict):
+        saved_fundamental = _read_float(
+            fingerprint.get("fundamental_frequency_hz"),
+            default=0.0,
+            digits=2,
+        )
+        saved_ratio = _read_int(fingerprint.get("harmonic_ratio_used"), default=1)
+        if saved_fundamental > 0:
+            return saved_fundamental, max(1, saved_ratio)
+
+    note_info = get_note_from_string_and_fret(string_label, fret)
+    expected_hz = frequency_from_note_info(note_info)
+    if not expected_hz:
+        return detected_frequency_hz, 1
+
+    candidates = [
+        (detected_frequency_hz, 1),
+        (detected_frequency_hz / 2.0, 2),
+        (detected_frequency_hz / 3.0, 3),
+        (detected_frequency_hz / 4.0, 4),
+        (detected_frequency_hz * 2.0, -2),
+    ]
+    corrected_hz, ratio = min(
+        candidates,
+        key=lambda item: abs(_cents_between(item[0], expected_hz)),
+    )
+    return round(float(corrected_hz), 2), ratio
+
+
+def _normalize_single_fingerprint(
+    fingerprint: Any,
+    *,
+    detected_frequency_hz: float,
+    fundamental_frequency_hz: float,
+    harmonic_ratio: int,
+    string_label: str,
+    fret: int,
+) -> dict[str, Any]:
+    note_info = get_note_from_string_and_fret(string_label, fret)
+    if not isinstance(fingerprint, dict):
+        fingerprint = {}
+
+    harmonic_peaks = _normalize_frequency_list(fingerprint.get("harmonic_peaks_hz"))
+    if not harmonic_peaks:
+        harmonic_peaks = _normalize_frequency_list(fingerprint.get("dominant_frequencies"))
+
+    harmonic_strengths = fingerprint.get("harmonic_strengths", [])
+    if isinstance(harmonic_strengths, dict):
+        normalized_strengths: Any = {
+            str(key): _read_float(value, default=0.0, digits=3)
+            for key, value in harmonic_strengths.items()
+        }
+    elif isinstance(harmonic_strengths, list):
+        normalized_strengths = [
+            _read_float(value, default=0.0, digits=3)
+            for value in harmonic_strengths[:12]
+        ]
+    else:
+        normalized_strengths = []
+
+    source = str(fingerprint.get("source", "recorded" if fingerprint else "legacy_migration"))
+    return {
+        "fundamental_frequency_hz": round(float(fundamental_frequency_hz), 2),
+        "detected_frequency_hz": round(float(detected_frequency_hz), 2),
+        "harmonic_ratio_used": harmonic_ratio,
+        "harmonic_peaks_hz": harmonic_peaks[:12],
+        "harmonic_strengths": normalized_strengths,
+        "spectral_centroid": _read_float(
+            fingerprint.get("spectral_centroid", fingerprint.get("spectral_centroid_avg")),
+            default=0.0,
+            digits=3,
+        ),
+        "spectral_bandwidth": _read_float(fingerprint.get("spectral_bandwidth"), default=0.0, digits=3),
+        "rms_energy": _read_float(fingerprint.get("rms_energy", fingerprint.get("rms")), default=0.0, digits=5),
+        "zero_crossing_rate": _read_float(fingerprint.get("zero_crossing_rate"), default=0.0, digits=5),
+        "chroma_vector": _normalize_chroma_vector(fingerprint.get("chroma_vector", [])),
+        "attack_time_ms": _read_float(fingerprint.get("attack_time_ms"), default=0.0, digits=2),
+        "decay_profile": _normalize_decay_profile(fingerprint.get("decay_profile")),
+        "string_name": str(fingerprint.get("string_name", string_label)),
+        "fret": _read_int(fingerprint.get("fret"), default=fret),
+        "note_name": str(fingerprint.get("note_name", note_info.get("full_note", ""))),
+        "source": source,
+        "needs_recalibration": bool(fingerprint.get("needs_recalibration", source == "legacy_migration")),
+    }
+
+
+def _normalize_quality(quality: Any, *, harmonic_ratio: int) -> dict[str, Any]:
+    warnings: list[str] = []
+    if isinstance(quality, dict):
+        raw_warnings = quality.get("warnings", [])
+        if isinstance(raw_warnings, list):
+            warnings.extend(str(item) for item in raw_warnings if str(item).strip())
+
+    if abs(harmonic_ratio) != 1:
+        warning = (
+            "Saved detected pitch appears to be a harmonic; "
+            "the derived fundamental is used for matching."
+        )
+        if warning not in warnings:
+            warnings.append(warning)
+
+    return {
+        "warnings": warnings,
+        "needs_recalibration": bool(warnings),
+    }
+
+
+def _normalize_frequency_list(values: Any) -> list[float]:
+    if not isinstance(values, list):
+        return []
+
+    frequencies: list[float] = []
+    for value in values:
+        frequency = _read_float(value, default=0.0, digits=2)
+        if frequency > 0:
+            frequencies.append(frequency)
+    return frequencies
+
+
+def _normalize_decay_profile(values: Any) -> list[float]:
+    if not isinstance(values, list):
+        return []
+    return [_read_float(value, default=0.0, digits=3) for value in values[:12]]
+
+
+def _read_float(value: Any, *, default: float, digits: int) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        numeric = default
+    if not math.isfinite(numeric):
+        numeric = default
+    return round(numeric, digits)
+
+
+def _read_optional_float(value: Any, *, digits: int) -> float | None:
+    if value is None:
+        return None
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(numeric):
+        return None
+    return round(numeric, digits)
+
+
+def _read_int(value: Any, *, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _cents_between(frequency_hz: float, reference_hz: float) -> float:
+    if frequency_hz <= 0 or reference_hz <= 0:
+        return float("inf")
+    return 1200.0 * math.log2(frequency_hz / reference_hz)
 
 
 def _normalize_chord(entry: dict[str, Any]) -> dict[str, Any] | None:
@@ -281,6 +541,17 @@ def _normalize_chord(entry: dict[str, Any]) -> dict[str, Any] | None:
             "pitch_classes": normalized_pitch_classes,
             "pitch_class_strengths": normalized_strengths,
             "spectral_centroid_avg": spectral_centroid_avg,
+            "spectral_bandwidth": _read_float(
+                fingerprint.get("spectral_bandwidth"),
+                default=0.0,
+                digits=3,
+            ),
+            "rms": _read_float(fingerprint.get("rms"), default=0.0, digits=5),
+            "zero_crossing_rate": _read_float(
+                fingerprint.get("zero_crossing_rate"),
+                default=0.0,
+                digits=5,
+            ),
             "chroma_vector": chroma_vector,
             "confidence_baseline": confidence_baseline,
         },
@@ -326,7 +597,7 @@ def _sort_chords(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(entries, key=lambda entry: entry["chord_name"].casefold())
 
 
-def _write_data(data: dict[str, list[dict[str, Any]]], path: Path) -> None:
+def _write_data(data: dict[str, Any], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_suffix(".tmp")
     temp_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
